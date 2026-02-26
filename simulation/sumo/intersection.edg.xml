@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- simulation/sumo/intersection.edg.xml -->
+<edges>
+  <!-- Vehicle edges -->
+  <edge id="N2C" from="N" to="C" numLanes="3" speed="13.9" />
+  <edge id="C2N" from="C" to="N" numLanes="3" speed="13.9" />
+  <edge id="S2C" from="S" to="C" numLanes="3" speed="13.9" />
+  <edge id="C2S" from="C" to="S" numLanes="3" speed="13.9" />
+  <edge id="E2C" from="E" to="C" numLanes="3" speed="13.9" />
+  <edge id="C2E" from="C" to="E" numLanes="3" speed="13.9" />
+  <edge id="W2C" from="W" to="C" numLanes="3" speed="13.9" />
+  <edge id="C2W" from="C" to="W" numLanes="3" speed="13.9" />
+  <!-- SIDEWALK → CORNER EDGES -->
+  <edge id="Nside_W" from="N_ped_W" to="CW_NW" vClass="pedestrian" allow="pedestrian" width="2.0" />
+  <edge id="Nside_E" from="N_ped_E" to="CW_NE" vClass="pedestrian" allow="pedestrian" width="2.0" />
+  <edge id="Sside_W" from="S_ped_W" to="CW_SW" vClass="pedestrian" allow="pedestrian" width="2.0" />
+  <edge id="Sside_E" from="S_ped_E" to="CW_SE" vClass="pedestrian" allow="pedestrian" width="2.0" />
+  <edge id="Eside_N" from="E_ped_N" to="CW_NE" vClass="pedestrian" allow="pedestrian" width="2.0" />
+  <edge id="Eside_S" from="E_ped_S" to="CW_SE" vClass="pedestrian" allow="pedestrian" width="2.0" />
+  <edge id="Wside_N" from="W_ped_N" to="CW_NW" vClass="pedestrian" allow="pedestrian" width="2.0" />
+  <edge id="Wside_S" from="W_ped_S" to="CW_SW" vClass="pedestrian" allow="pedestrian" width="2.0" />
+  <!-- CROSSWALK EDGES -->
+  <edge id="X_North" from="CW_NW" to="CW_NE" vClass="pedestrian" allow="pedestrian" width="2.0" />
+  <edge id="X_East" from="CW_NE" to="CW_SE" vClass="pedestrian" allow="pedestrian" width="2.0" />
+  <edge id="X_South" from="CW_SW" to="CW_SE" vClass="pedestrian" allow="pedestrian" width="2.0" />
+  <edge id="X_West" from="CW_NW" to="CW_SW" vClass="pedestrian" allow="pedestrian" width="2.0" />
+</edges>

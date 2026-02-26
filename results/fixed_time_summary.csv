@@ -1,0 +1,2 @@
+avg_waiting_time,avg_queue_length,max_queue_length,avg_ped_waiting_time,avg_ped_queue_length,max_ped_queue_length,throughput,cumulative_reward,simulation_steps
+2254.528,119.999,377,30.627,1.975,13,907,-2407129.0,1000
