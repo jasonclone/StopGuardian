@@ -2,6 +2,8 @@
 <!-- simulation/sumo/routes.rou.xml -->
 <routes>
   <!-- Vehicles -->
+  <!-- vehicle dist data based on Policy and Governmental Affairs Office of Highway Policy Information from FWHA-->
+  <!-- https://www.fhwa.dot.gov/policyinformation/statistics/2023/vm1.cfm-->
   <vTypeDistribution id="vehDist">
     <vType
       id="car"
@@ -17,7 +19,7 @@
       lcSpeedGain="1.0"
       lcKeepRight="0.7"
       lcRandom="0.3"
-      probability="0.75"
+      probability="0.9112"
     />
     <vType
       id="truck"
@@ -33,7 +35,7 @@
       lcSpeedGain="0.3"
       lcKeepRight="0.9"
       lcRandom="0.1"
-      probability="0.08"
+      probability="0.0772"
     />
     <vType
       id="bus"
@@ -49,7 +51,7 @@
       lcSpeedGain="0.2"
       lcKeepRight="0.8"
       lcRandom="0.05"
-      probability="0.04"
+      probability="0.0052"
     />
     <vType
       id="moto"
@@ -65,7 +67,7 @@
       lcSpeedGain="1.5"
       lcKeepRight="0.2"
       lcRandom="0.8"
-      probability="0.05"
+      probability="0.0063"
     />
     <vType
       id="ev"
@@ -84,7 +86,7 @@
       lcSpeedGain="2.0"
       lcKeepRight="0.0"
       lcRandom="0.2"
-      probability="0.005"
+      probability="0.0001"
     />
   </vTypeDistribution>
 
