@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on 2026-03-05T18:50:55.282242-08:00 by Eclipse SUMO netedit 1.26.0
+<!-- generated on 2026-03-05T19:41:38.623249-08:00 by Eclipse SUMO netedit 1.26.0
 <neteditConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/neteditConfiguration.xsd">
 
     <input>
@@ -218,12 +218,12 @@
         <lane id="SC_3" index="3" disallow="pedestrian" speed="13.89" length="485.90" shape="4.80,-500.00 4.80,-14.10"/>
         <lane id="SC_4" index="4" disallow="pedestrian" speed="13.89" length="485.90" shape="1.60,-500.00 1.60,-14.10"/>
     </edge>
-    <edge id="WC" from="W" to="C" priority="-1" length="85.90">
-        <lane id="WC_0" index="0" allow="pedestrian" speed="13.89" length="85.90" width="2.00" shape="-500.00,-11.60 -14.10,-11.60"/>
-        <lane id="WC_1" index="1" allow="bicycle" speed="13.89" length="85.90" width="1.00" shape="-500.00,-10.10 -14.10,-10.10"/>
-        <lane id="WC_2" index="2" disallow="pedestrian" speed="13.89" length="85.90" shape="-500.00,-8.00 -14.10,-8.00"/>
-        <lane id="WC_3" index="3" disallow="pedestrian" speed="13.89" length="85.90" shape="-500.00,-4.80 -14.10,-4.80"/>
-        <lane id="WC_4" index="4" disallow="pedestrian" speed="13.89" length="85.90" shape="-500.00,-1.60 -14.10,-1.60"/>
+    <edge id="WC" from="W" to="C" priority="-1">
+        <lane id="WC_0" index="0" allow="pedestrian" speed="13.89" length="485.90" width="2.00" shape="-500.00,-11.60 -14.10,-11.60"/>
+        <lane id="WC_1" index="1" allow="bicycle" speed="13.89" length="485.90" width="1.00" shape="-500.00,-10.10 -14.10,-10.10"/>
+        <lane id="WC_2" index="2" disallow="pedestrian" speed="13.89" length="485.90" shape="-500.00,-8.00 -14.10,-8.00"/>
+        <lane id="WC_3" index="3" disallow="pedestrian" speed="13.89" length="485.90" shape="-500.00,-4.80 -14.10,-4.80"/>
+        <lane id="WC_4" index="4" disallow="pedestrian" speed="13.89" length="485.90" shape="-500.00,-1.60 -14.10,-1.60"/>
     </edge>
 
     <tlLogic id="C" type="static" programID="0" offset="0">
