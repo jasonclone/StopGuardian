@@ -1,0 +1,692 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  FHWA DATA SOURCES USED IN THIS FILE
+
+  VEHICLE MIX (FHWA VM-1):
+  https://www.fhwa.dot.gov/policyinformation/statistics/2023/vm1.cfm
+
+  BICYCLE OPERATING CHARACTERISTICS (FHWA-HRT-04-103):
+  https://www.fhwa.dot.gov/publications/research/safety/04103/07.cfm
+
+  PEDESTRIAN WALKING SPEEDS (FHWA-HRT-05-100):
+  https://www.fhwa.dot.gov/publications/research/safety/pedbike/05085/pptchapt8.cfm
+
+  NOTES:
+  - Applied Urban America tuning: car sigma reduced to 0.5, minGap to 2.0,
+    jmDriveAfterRedTime added for realistic aggressive behavior.
+  - Replaced high deterministic perHour/car bursts with per-second Poisson-like
+    probabilities for turning splits (straight/left/right).
+  - All flows spawn at edge start (departPos="0"), use departLane="best",
+    and departSpeed="random" for realistic entry speeds.
+  - Removed any attributes that are invalid for <vType> in SUMO schema.
+-->
+
+<routes
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd"
+>
+  <vTypeDistribution id="vehDist">
+    <vType
+      id="car_sedan"
+      vClass="passenger"
+      length="4.8"
+      accel="2.6"
+      decel="4.5"
+      maxSpeed="13.9"
+      sigma="0.5"
+      minGap="2.0"
+      speedDev="0.10"
+      actionStepLength="0.1"
+      lcStrategic="1.0"
+      lcCooperative="0.5"
+      lcSpeedGain="1.0"
+      lcKeepRight="0.7"
+      probability="0.6000"
+    />
+
+    <vType
+      id="car_suv"
+      vClass="passenger"
+      length="5.0"
+      accel="2.0"
+      decel="4.2"
+      maxSpeed="12.5"
+      sigma="0.5"
+      minGap="2.2"
+      speedDev="0.08"
+      actionStepLength="0.1"
+      lcStrategic="1.0"
+      lcCooperative="0.5"
+      lcSpeedGain="0.9"
+      lcKeepRight="0.8"
+      probability="0.2500"
+    />
+
+    <vType
+      id="car_sport"
+      vClass="passenger"
+      length="4.4"
+      accel="3.5"
+      decel="5.0"
+      maxSpeed="16.7"
+      sigma="0.5"
+      minGap="1.8"
+      speedDev="0.12"
+      actionStepLength="0.1"
+      lcStrategic="1.0"
+      lcCooperative="0.5"
+      lcSpeedGain="1.2"
+      lcKeepRight="0.5"
+      probability="0.0612"
+    />
+
+    <vType
+      id="truck"
+      vClass="truck"
+      length="15.0"
+      accel="1.2"
+      decel="3.5"
+      maxSpeed="11.1"
+      sigma="0.7"
+      minGap="3.5"
+      speedDev="0.05"
+      actionStepLength="0.1"
+      lcStrategic="1.0"
+      lcCooperative="0.2"
+      lcSpeedGain="0.3"
+      lcKeepRight="0.9"
+      probability="0.0772"
+    />
+
+    <vType
+      id="bus"
+      vClass="bus"
+      length="12.0"
+      accel="1.5"
+      decel="3.5"
+      maxSpeed="11.1"
+      sigma="0.7"
+      minGap="3.5"
+      speedDev="0.05"
+      actionStepLength="0.1"
+      lcStrategic="1.0"
+      lcCooperative="0.3"
+      lcSpeedGain="0.2"
+      lcKeepRight="0.8"
+      probability="0.0052"
+    />
+
+    <vType
+      id="moto"
+      vClass="motorcycle"
+      length="2.2"
+      accel="3.5"
+      decel="4.0"
+      maxSpeed="16.7"
+      sigma="1.0"
+      minGap="1.0"
+      speedDev="0.15"
+      actionStepLength="0.1"
+      lcStrategic="1.0"
+      lcCooperative="0.1"
+      lcSpeedGain="1.5"
+      lcKeepRight="0.2"
+      probability="0.0063"
+    />
+
+    <vType
+      id="ev"
+      vClass="emergency"
+      length="6.5"
+      accel="4.5"
+      decel="4.5"
+      maxSpeed="22.2"
+      speedFactor="1.6"
+      sigma="0.8"
+      minGap="1.5"
+      speedDev="0.20"
+      actionStepLength="0.1"
+      lcStrategic="1.0"
+      lcCooperative="1.0"
+      lcSpeedGain="2.0"
+      lcKeepRight="0.0"
+      probability="0.0001"
+    />
+  </vTypeDistribution>
+
+  <vType
+    id="bike"
+    vClass="bicycle"
+    length="1.8"
+    accel="1.2"
+    decel="2.5"
+    maxSpeed="6.1"
+    speedFactor="1.0"
+    speedDev="0.20"
+    sigma="0.5"
+    minGap="0.8"
+    lcStrategic="1.0"
+    lcCooperative="0.2"
+    lcKeepRight="0.6"
+  />
+
+  <vType
+    id="ped"
+    vClass="pedestrian"
+    maxSpeed="1.2"
+    speedFactor="1.0"
+    speedDev="0.15"
+    impatience="0.5"
+    jmCrossingGap="2.0"
+    jmIgnoreFoeProb="0.15"
+    jmIgnoreJunctionFoeProb="0.02"
+  />
+
+  <!-- WEST -->
+
+  <flow
+    id="car_WC_CE"
+    type="vehDist"
+    begin="0.00"
+    end="10000.00"
+    probability="0.14"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="WC"
+    to="CE"
+  />
+
+  <flow
+    id="car_WC_CN"
+    type="vehDist"
+    begin="0.00"
+    end="10000.00"
+    probability="0.04"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="WC"
+    to="CN"
+  />
+
+  <flow
+    id="car_WC_CS"
+    type="vehDist"
+    begin="0.00"
+    end="10000.00"
+    probability="0.06"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="WC"
+    to="CS"
+  />
+
+  <!-- SOUTH -->
+
+  <flow
+    id="car_SC_CN"
+    type="vehDist"
+    begin="0.00"
+    end="10000.00"
+    probability="0.14"
+    color="red"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="SC"
+    to="CN"
+  />
+
+  <flow
+    id="car_SC_CE"
+    type="vehDist"
+    begin="0.00"
+    end="10000.00"
+    probability="0.04"
+    color="red"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="SC"
+    to="CE"
+  />
+
+  <flow
+    id="car_SC_CW"
+    type="vehDist"
+    begin="0.00"
+    end="10000.00"
+    probability="0.06"
+    color="red"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="SC"
+    to="CW"
+  />
+
+  <!-- EAST -->
+
+  <flow
+    id="car_EC_CW"
+    type="vehDist"
+    begin="0.00"
+    end="10000.00"
+    probability="0.14"
+    color="blue"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="EC"
+    to="CW"
+  />
+
+  <flow
+    id="car_EC_CS"
+    type="vehDist"
+    begin="0.00"
+    end="10000.00"
+    probability="0.04"
+    color="blue"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="EC"
+    to="CS"
+  />
+
+  <flow
+    id="car_EC_CN"
+    type="vehDist"
+    begin="0.00"
+    end="10000.00"
+    probability="0.06"
+    color="blue"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="EC"
+    to="CN"
+  />
+
+  <!-- NORTH -->
+
+  <flow
+    id="car_NC_CW"
+    type="vehDist"
+    begin="0.00"
+    end="10000.00"
+    probability="0.14"
+    color="white"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="NC"
+    to="CW"
+  />
+
+  <flow
+    id="car_NC_CS"
+    type="vehDist"
+    begin="0.00"
+    end="10000.00"
+    probability="0.04"
+    color="white"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="NC"
+    to="CS"
+  />
+
+  <flow
+    id="car_NC_CE"
+    type="vehDist"
+    begin="0.00"
+    end="10000.00"
+    probability="0.06"
+    color="white"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="NC"
+    to="CE"
+  />
+
+  <!-- BIKE FLOWS -->
+
+  <flow
+    id="f_12"
+    type="bike"
+    begin="0.00"
+    end="10000.00"
+    probability="0.002"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="WC"
+    to="CE"
+  />
+
+  <flow
+    id="f_13"
+    type="bike"
+    begin="0.00"
+    end="10000.00"
+    probability="0.002"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="WC"
+    to="CS"
+  />
+
+  <flow
+    id="f_14"
+    type="bike"
+    begin="0.00"
+    end="10000.00"
+    probability="0.002"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="WC"
+    to="CN"
+  />
+
+  <flow
+    id="f_15"
+    type="bike"
+    begin="0.00"
+    end="10000.00"
+    probability="0.002"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="red"
+    from="SC"
+    to="CW"
+  />
+
+  <flow
+    id="f_16"
+    type="bike"
+    begin="0.00"
+    end="10000.00"
+    probability="0.002"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="red"
+    from="SC"
+    to="CN"
+  />
+
+  <flow
+    id="f_17"
+    type="bike"
+    begin="0.00"
+    end="10000.00"
+    probability="0.002"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="red"
+    from="SC"
+    to="CE"
+  />
+
+  <flow
+    id="f_18"
+    type="bike"
+    begin="0.00"
+    end="10000.00"
+    probability="0.002"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="blue"
+    from="EC"
+    to="CS"
+  />
+
+  <flow
+    id="f_19"
+    type="bike"
+    begin="0.00"
+    end="10000.00"
+    probability="0.002"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="blue"
+    from="EC"
+    to="CN"
+  />
+
+  <flow
+    id="f_20"
+    type="bike"
+    begin="0.00"
+    end="10000.00"
+    probability="0.002"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="blue"
+    from="EC"
+    to="CW"
+  />
+
+  <flow
+    id="f_21"
+    type="bike"
+    begin="0.00"
+    end="10000.00"
+    probability="0.002"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="white"
+    from="NC"
+    to="CS"
+  />
+
+  <flow
+    id="f_22"
+    type="bike"
+    begin="0.00"
+    end="10000.00"
+    probability="0.002"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="white"
+    from="NC"
+    to="CE"
+  />
+
+  <flow
+    id="f_23"
+    type="bike"
+    begin="0.00"
+    end="10000.00"
+    probability="0.002"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="white"
+    from="NC"
+    to="CW"
+  />
+
+  <!-- PEDESTRIANS -->
+
+  <flow
+    id="f_24"
+    type="ped"
+    begin="0.00"
+    end="10000.00"
+    probability="0.003"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="WC"
+    to="CE"
+  />
+
+  <flow
+    id="f_25"
+    type="ped"
+    begin="0.00"
+    end="10000.00"
+    probability="0.003"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="WC"
+    to="CS"
+  />
+
+  <flow
+    id="f_26"
+    type="ped"
+    begin="0.00"
+    end="10000.00"
+    probability="0.003"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    from="WC"
+    to="CN"
+  />
+
+  <flow
+    id="f_27"
+    type="ped"
+    begin="0.00"
+    end="10000.00"
+    probability="0.003"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="red"
+    from="SC"
+    to="CE"
+  />
+
+  <flow
+    id="f_28"
+    type="ped"
+    begin="0.00"
+    end="10000.00"
+    probability="0.003"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="red"
+    from="SC"
+    to="CN"
+  />
+
+  <flow
+    id="f_29"
+    type="ped"
+    begin="0.00"
+    end="10000.00"
+    probability="0.003"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="red"
+    from="SC"
+    to="CW"
+  />
+
+  <flow
+    id="f_30"
+    type="ped"
+    begin="0.00"
+    end="10000.00"
+    probability="0.003"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="blue"
+    from="EC"
+    to="CS"
+  />
+
+  <flow
+    id="f_31"
+    type="ped"
+    begin="0.00"
+    end="10000.00"
+    probability="0.003"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="blue"
+    from="EC"
+    to="CW"
+  />
+
+  <flow
+    id="f_32"
+    type="ped"
+    begin="0.00"
+    end="10000.00"
+    probability="0.003"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="blue"
+    from="EC"
+    to="CN"
+  />
+
+  <flow
+    id="f_33"
+    type="ped"
+    begin="0.00"
+    end="10000.00"
+    probability="0.003"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="white"
+    from="NC"
+    to="CS"
+  />
+
+  <flow
+    id="f_34"
+    type="ped"
+    begin="0.00"
+    end="10000.00"
+    probability="0.003"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="white"
+    from="NC"
+    to="CE"
+  />
+
+  <flow
+    id="f_35"
+    type="ped"
+    begin="0.00"
+    end="10000.00"
+    probability="0.003"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
+    color="white"
+    from="NC"
+    to="CW"
+  />
+</routes>
