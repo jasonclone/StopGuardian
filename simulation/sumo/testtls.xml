@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on 2026-03-06T21:50:00.444749-08:00 by Eclipse SUMO netedit 1.26.0
+<!-- generated on 2026-03-06T22:18:51.810325-08:00 by Eclipse SUMO netedit 1.26.0
 <neteditConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/neteditConfiguration.xsd">
 
     <input>
@@ -35,15 +35,15 @@
 <additional xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/additional_file.xsd">
     <tlLogic id="C" type="static" programID="0" offset="0">
         <phase duration="15" state="rGrGGrrrrrrrrrrGrGGrrrrrrrrrrGrG"/>
-        <phase duration="10" state="GGGGGrrrrrrrrrGGGGGrrrrrrrrrrrrr"/>
-        <phase duration="5"  state="GyGyyrrrrrrrrrGyGyyrrrrrrrrrrrrr"/>
+        <phase duration="10" state="GGgGGrrrrrrrrrGGgGGrrrrrrrrrrrrr"/>
+        <phase duration="5"  state="GygyyrrrrrrrrrGygyyrrrrrrrrrrrrr"/>
         <phase duration="2"  state="GrGrrrrrrrrrrrGrGrrrrrrrrrrrrrrr"/>
         <phase duration="10" state="GrGrrrrGrrrrGGGrGrrrrGrrrrGGrrrr"/>
         <phase duration="5"  state="yryrrrryrrrryyyryrrrryrrrryyrrrr"/>
         <phase duration="2"  state="rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"/>
         <phase duration="15" state="rrrrrrrrGrGGrrrrrrrrrrGrGGrrGrGr"/>
-        <phase duration="10" state="rrrrrrrGGGGGrrrrrrrrrGGGGGrrrrrr"/>
-        <phase duration="5"  state="rrrrrrrGyGyyrrrrrrrrrGyGyyrrrrrr"/>
+        <phase duration="10" state="rrrrrrrGGgGGrrrrrrrrrGGgGGrrrrrr"/>
+        <phase duration="5"  state="rrrrrrrGygyyrrrrrrrrrGygyyrrrrrr"/>
         <phase duration="2"  state="rrrrrrrGrGrrrrrrrrrrrGrGrrrrrrrr"/>
         <phase duration="10" state="GrrrrGGGrGrrrrGrrrrGGGrGrrrrrrrr"/>
         <phase duration="5"  state="yrrrryyyryrrrryrrrryyyryrrrrrrrr"/>

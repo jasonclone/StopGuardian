@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on 2026-03-06T21:50:05.426411-08:00 by Eclipse SUMO netedit 1.26.0
+<!-- generated on 2026-03-06T22:15:38.523122-08:00 by Eclipse SUMO netedit 1.26.0
 <neteditConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/neteditConfiguration.xsd">
 
     <input>
@@ -47,7 +47,7 @@
         <lane id=":C_1_0" index="0" allow="bicycle" speed="13.89" length="44.32" width="1.00" shape="-10.10,22.10 -6.90,-22.10"/>
     </edge>
     <edge id=":C_2" function="internal">
-        <lane id=":C_2_0" index="0" disallow="pedestrian" speed="10.54" length="21.31" shape="-8.00,22.10 -8.88,14.53 -11.52,9.12 -15.93,5.88 -18.10,5.50"/>
+        <lane id=":C_2_0" index="0" disallow="pedestrian" speed="10.54" length="1.12" shape="-8.00,22.10 -8.13,20.98"/>
     </edge>
     <edge id=":C_3" function="internal">
         <lane id=":C_3_0" index="0" disallow="pedestrian" speed="13.89" length="44.32" shape="-8.00,22.10 -4.80,-22.10"/>
@@ -61,7 +61,7 @@
         <lane id=":C_28_0" index="0" allow="bicycle" speed="9.68" length="4.06" width="1.00" shape="-18.10,7.62 -22.10,6.90"/>
     </edge>
     <edge id=":C_29" function="internal">
-        <lane id=":C_29_0" index="0" disallow="pedestrian" speed="10.54" length="4.06" shape="-18.10,5.50 -22.10,4.80"/>
+        <lane id=":C_29_0" index="0" disallow="pedestrian" speed="10.54" length="24.25" shape="-8.13,20.98 -8.88,14.53 -11.52,9.12 -15.93,5.88 -22.10,4.80"/>
     </edge>
     <edge id=":C_30" function="internal">
         <lane id=":C_30_0" index="0" disallow="pedestrian" speed="13.27" length="4.05" shape="18.10,-4.15 22.10,-4.80"/>
@@ -74,7 +74,7 @@
         <lane id=":C_8_0" index="0" allow="bicycle" speed="13.89" length="44.32" width="1.00" shape="22.10,10.10 -22.10,6.90"/>
     </edge>
     <edge id=":C_9" function="internal">
-        <lane id=":C_9_0" index="0" disallow="pedestrian" speed="10.54" length="21.31" shape="22.10,8.00 14.53,8.88 9.12,11.52 5.88,15.93 5.50,18.10"/>
+        <lane id=":C_9_0" index="0" disallow="pedestrian" speed="10.54" length="1.12" shape="22.10,8.00 20.98,8.13"/>
     </edge>
     <edge id=":C_10" function="internal">
         <lane id=":C_10_0" index="0" disallow="pedestrian" speed="13.89" length="44.32" shape="22.10,8.00 -22.10,4.80"/>
@@ -88,7 +88,7 @@
         <lane id=":C_31_0" index="0" allow="bicycle" speed="9.68" length="4.06" width="1.00" shape="7.62,18.10 6.90,22.10"/>
     </edge>
     <edge id=":C_32" function="internal">
-        <lane id=":C_32_0" index="0" disallow="pedestrian" speed="10.54" length="4.06" shape="5.50,18.10 4.80,22.10"/>
+        <lane id=":C_32_0" index="0" disallow="pedestrian" speed="10.54" length="24.25" shape="20.98,8.13 14.53,8.88 9.12,11.52 5.88,15.93 4.80,22.10"/>
     </edge>
     <edge id=":C_33" function="internal">
         <lane id=":C_33_0" index="0" disallow="pedestrian" speed="13.27" length="4.05" shape="-4.15,-18.10 -4.80,-22.10"/>
@@ -101,7 +101,7 @@
         <lane id=":C_15_0" index="0" allow="bicycle" speed="13.89" length="44.32" width="1.00" shape="10.10,-22.10 6.90,22.10"/>
     </edge>
     <edge id=":C_16" function="internal">
-        <lane id=":C_16_0" index="0" disallow="pedestrian" speed="10.54" length="21.31" shape="8.00,-22.10 8.88,-14.53 11.52,-9.12 15.93,-5.88 18.10,-5.50"/>
+        <lane id=":C_16_0" index="0" disallow="pedestrian" speed="10.54" length="1.12" shape="8.00,-22.10 8.13,-20.98"/>
     </edge>
     <edge id=":C_17" function="internal">
         <lane id=":C_17_0" index="0" disallow="pedestrian" speed="13.89" length="44.32" shape="8.00,-22.10 4.80,22.10"/>
@@ -115,7 +115,7 @@
         <lane id=":C_34_0" index="0" allow="bicycle" speed="9.68" length="4.06" width="1.00" shape="18.10,-7.62 22.10,-6.90"/>
     </edge>
     <edge id=":C_35" function="internal">
-        <lane id=":C_35_0" index="0" disallow="pedestrian" speed="10.54" length="4.06" shape="18.10,-5.50 22.10,-4.80"/>
+        <lane id=":C_35_0" index="0" disallow="pedestrian" speed="10.54" length="24.25" shape="8.13,-20.98 8.88,-14.53 11.52,-9.12 15.93,-5.88 22.10,-4.80"/>
     </edge>
     <edge id=":C_36" function="internal">
         <lane id=":C_36_0" index="0" disallow="pedestrian" speed="13.27" length="4.05" shape="-18.10,4.15 -22.10,4.80"/>
@@ -128,7 +128,7 @@
         <lane id=":C_22_0" index="0" allow="bicycle" speed="13.89" length="44.32" width="1.00" shape="-22.10,-10.10 22.10,-6.90"/>
     </edge>
     <edge id=":C_23" function="internal">
-        <lane id=":C_23_0" index="0" disallow="pedestrian" speed="10.54" length="21.31" shape="-22.10,-8.00 -14.53,-8.88 -9.12,-11.52 -5.88,-15.93 -5.50,-18.10"/>
+        <lane id=":C_23_0" index="0" disallow="pedestrian" speed="10.54" length="1.12" shape="-22.10,-8.00 -20.98,-8.13"/>
     </edge>
     <edge id=":C_24" function="internal">
         <lane id=":C_24_0" index="0" disallow="pedestrian" speed="13.89" length="44.32" shape="-22.10,-8.00 22.10,-4.80"/>
@@ -142,7 +142,7 @@
         <lane id=":C_37_0" index="0" allow="bicycle" speed="9.68" length="4.06" width="1.00" shape="-7.62,-18.10 -6.90,-22.10"/>
     </edge>
     <edge id=":C_38" function="internal">
-        <lane id=":C_38_0" index="0" disallow="pedestrian" speed="10.54" length="4.06" shape="-5.50,-18.10 -4.80,-22.10"/>
+        <lane id=":C_38_0" index="0" disallow="pedestrian" speed="10.54" length="24.25" shape="-20.98,-8.13 -14.53,-8.88 -9.12,-11.52 -5.88,-15.93 -4.80,-22.10"/>
     </edge>
     <edge id=":C_39" function="internal">
         <lane id=":C_39_0" index="0" disallow="pedestrian" speed="13.27" length="4.05" shape="4.15,18.10 4.80,22.10"/>
@@ -240,15 +240,15 @@
 
     <tlLogic id="C" type="static" programID="0" offset="0">
         <phase duration="15" state="rGrGGrrrrrrrrrrGrGGrrrrrrrrrrGrG"/>
-        <phase duration="10" state="GGGGGrrrrrrrrrGGGGGrrrrrrrrrrrrr"/>
-        <phase duration="5"  state="GyGyyrrrrrrrrrGyGyyrrrrrrrrrrrrr"/>
+        <phase duration="10" state="GGgGGrrrrrrrrrGGgGGrrrrrrrrrrrrr"/>
+        <phase duration="5"  state="GygyyrrrrrrrrrGygyyrrrrrrrrrrrrr"/>
         <phase duration="2"  state="GrGrrrrrrrrrrrGrGrrrrrrrrrrrrrrr"/>
         <phase duration="10" state="GrGrrrrGrrrrGGGrGrrrrGrrrrGGrrrr"/>
         <phase duration="5"  state="yryrrrryrrrryyyryrrrryrrrryyrrrr"/>
         <phase duration="2"  state="rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"/>
         <phase duration="15" state="rrrrrrrrGrGGrrrrrrrrrrGrGGrrGrGr"/>
-        <phase duration="10" state="rrrrrrrGGGGGrrrrrrrrrGGGGGrrrrrr"/>
-        <phase duration="5"  state="rrrrrrrGyGyyrrrrrrrrrGyGyyrrrrrr"/>
+        <phase duration="10" state="rrrrrrrGGgGGrrrrrrrrrGGgGGrrrrrr"/>
+        <phase duration="5"  state="rrrrrrrGygyyrrrrrrrrrGygyyrrrrrr"/>
         <phase duration="2"  state="rrrrrrrGrGrrrrrrrrrrrGrGrrrrrrrr"/>
         <phase duration="10" state="GrrrrGGGrGrrrrGrrrrGGGrGrrrrrrrr"/>
         <phase duration="5"  state="yrrrryyyryrrrryrrrryyyryrrrrrrrr"/>
@@ -295,19 +295,19 @@
     <junction id="W" type="dead_end" x="-500.00" y="0.00" incLanes="CW_0 CW_1 CW_2 CW_3" intLanes="" shape="-500.00,0.00 -500.00,17.40 -500.00,0.00"/>
 
     <junction id=":C_28_0" type="internal" x="-18.10" y="7.62" incLanes=":C_0_0" intLanes=":C_8_0 :C_10_0 :C_10_1 :C_19_0 :C_19_1 :C_c0_0 :C_c3_0"/>
-    <junction id=":C_29_0" type="internal" x="-18.10" y="5.50" incLanes=":C_2_0" intLanes=":C_1_0 :C_8_0 :C_10_0 :C_10_1 :C_19_0 :C_19_1 :C_c0_0 :C_c3_0"/>
+    <junction id=":C_29_0" type="internal" x="-8.13" y="20.98" incLanes=":C_2_0 NC_1" intLanes=":C_1_0 :C_8_0 :C_10_0 :C_10_1 :C_19_0 :C_19_1 :C_c0_0 :C_c3_0"/>
     <junction id=":C_30_0" type="internal" x="18.10" y="-4.15" incLanes=":C_5_0" intLanes=":C_8_0 :C_10_0 :C_10_1 :C_12_0 :C_12_1 :C_14_0 :C_15_0 :C_16_0 :C_17_0 :C_17_1 :C_22_0 :C_24_0 :C_24_1 :C_26_0 :C_26_1 :C_c0_0 :C_c1_0"/>
     <junction id=":C_30_1" type="internal" x="18.10" y="-1.03" incLanes=":C_5_1" intLanes=":C_8_0 :C_10_0 :C_10_1 :C_12_0 :C_12_1 :C_14_0 :C_15_0 :C_16_0 :C_17_0 :C_17_1 :C_22_0 :C_24_0 :C_24_1 :C_26_0 :C_26_1 :C_c0_0 :C_c1_0"/>
     <junction id=":C_31_0" type="internal" x="7.62" y="18.10" incLanes=":C_7_0" intLanes=":C_15_0 :C_17_0 :C_17_1 :C_26_0 :C_26_1 :C_c0_0 :C_c1_0"/>
-    <junction id=":C_32_0" type="internal" x="5.50" y="18.10" incLanes=":C_9_0" intLanes=":C_8_0 :C_15_0 :C_17_0 :C_17_1 :C_26_0 :C_26_1 :C_c0_0 :C_c1_0"/>
+    <junction id=":C_32_0" type="internal" x="20.98" y="8.13" incLanes=":C_9_0 EC_1" intLanes=":C_8_0 :C_15_0 :C_17_0 :C_17_1 :C_26_0 :C_26_1 :C_c0_0 :C_c1_0"/>
     <junction id=":C_33_0" type="internal" x="-4.15" y="-18.10" incLanes=":C_12_0" intLanes=":C_1_0 :C_3_0 :C_3_1 :C_5_0 :C_5_1 :C_15_0 :C_17_0 :C_17_1 :C_19_0 :C_19_1 :C_21_0 :C_22_0 :C_23_0 :C_24_0 :C_24_1 :C_c1_0 :C_c2_0"/>
     <junction id=":C_33_1" type="internal" x="-1.03" y="-18.10" incLanes=":C_12_1" intLanes=":C_1_0 :C_3_0 :C_3_1 :C_5_0 :C_5_1 :C_15_0 :C_17_0 :C_17_1 :C_19_0 :C_19_1 :C_21_0 :C_22_0 :C_23_0 :C_24_0 :C_24_1 :C_c1_0 :C_c2_0"/>
     <junction id=":C_34_0" type="internal" x="18.10" y="-7.62" incLanes=":C_14_0" intLanes=":C_5_0 :C_5_1 :C_22_0 :C_24_0 :C_24_1 :C_c1_0 :C_c2_0"/>
-    <junction id=":C_35_0" type="internal" x="18.10" y="-5.50" incLanes=":C_16_0" intLanes=":C_5_0 :C_5_1 :C_15_0 :C_22_0 :C_24_0 :C_24_1 :C_c1_0 :C_c2_0"/>
+    <junction id=":C_35_0" type="internal" x="8.13" y="-20.98" incLanes=":C_16_0 SC_1" intLanes=":C_5_0 :C_5_1 :C_15_0 :C_22_0 :C_24_0 :C_24_1 :C_c1_0 :C_c2_0"/>
     <junction id=":C_36_0" type="internal" x="-18.10" y="4.15" incLanes=":C_19_0" intLanes=":C_0_0 :C_1_0 :C_2_0 :C_3_0 :C_3_1 :C_8_0 :C_10_0 :C_10_1 :C_12_0 :C_12_1 :C_22_0 :C_24_0 :C_24_1 :C_26_0 :C_26_1 :C_c2_0 :C_c3_0"/>
     <junction id=":C_36_1" type="internal" x="-18.10" y="1.03" incLanes=":C_19_1" intLanes=":C_0_0 :C_1_0 :C_2_0 :C_3_0 :C_3_1 :C_8_0 :C_10_0 :C_10_1 :C_12_0 :C_12_1 :C_22_0 :C_24_0 :C_24_1 :C_26_0 :C_26_1 :C_c2_0 :C_c3_0"/>
     <junction id=":C_37_0" type="internal" x="-7.62" y="-18.10" incLanes=":C_21_0" intLanes=":C_1_0 :C_3_0 :C_3_1 :C_12_0 :C_12_1 :C_c2_0 :C_c3_0"/>
-    <junction id=":C_38_0" type="internal" x="-5.50" y="-18.10" incLanes=":C_23_0" intLanes=":C_1_0 :C_3_0 :C_3_1 :C_12_0 :C_12_1 :C_22_0 :C_c2_0 :C_c3_0"/>
+    <junction id=":C_38_0" type="internal" x="-20.98" y="-8.13" incLanes=":C_23_0 WC_1" intLanes=":C_1_0 :C_3_0 :C_3_1 :C_12_0 :C_12_1 :C_22_0 :C_c2_0 :C_c3_0"/>
     <junction id=":C_39_0" type="internal" x="4.15" y="18.10" incLanes=":C_26_0" intLanes=":C_1_0 :C_3_0 :C_3_1 :C_5_0 :C_5_1 :C_7_0 :C_8_0 :C_9_0 :C_10_0 :C_10_1 :C_15_0 :C_17_0 :C_17_1 :C_19_0 :C_19_1 :C_c0_0 :C_c3_0"/>
     <junction id=":C_39_1" type="internal" x="1.03" y="18.10" incLanes=":C_26_1" intLanes=":C_1_0 :C_3_0 :C_3_1 :C_5_0 :C_5_1 :C_7_0 :C_8_0 :C_9_0 :C_10_0 :C_10_1 :C_15_0 :C_17_0 :C_17_1 :C_19_0 :C_19_1 :C_c0_0 :C_c3_0"/>
 
