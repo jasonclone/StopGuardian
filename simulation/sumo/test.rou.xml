@@ -183,8 +183,7 @@
     jmIgnoreJunctionFoeProb="0.02"
   />
 
-  <!-- WEST -->
-
+  <!-- WEST VEHICLES -->
   <flow
     id="car_WC_CE"
     type="vehDist"
@@ -227,8 +226,7 @@
     to="CS"
   />
 
-  <!-- SOUTH -->
-
+  <!-- SOUTH VEHICLES -->
   <flow
     id="car_SC_CN"
     type="vehDist"
@@ -271,8 +269,7 @@
     to="CW"
   />
 
-  <!-- EAST -->
-
+  <!-- EAST VEHICLES -->
   <flow
     id="car_EC_CW"
     type="vehDist"
@@ -315,8 +312,7 @@
     to="CN"
   />
 
-  <!-- NORTH -->
-
+  <!-- NORTH VEHICLES -->
   <flow
     id="car_NC_CW"
     type="vehDist"
@@ -360,17 +356,16 @@
   />
 
   <!-- BIKE FLOWS -->
-
   <flow
     id="f_12"
     type="bike"
     begin="0.00"
     end="1000.00"
     probability="0.002"
+    color="magenta"
     departPos="random"
     departLane="best"
     departSpeed="random"
-    color="magenta"
     from="WC"
     to="CE"
   />
@@ -381,10 +376,10 @@
     begin="0.00"
     end="1000.00"
     probability="0.002"
+    color="magenta"
     departPos="random"
     departLane="best"
     departSpeed="random"
-    color="magenta"
     from="WC"
     to="CS"
   />
@@ -395,10 +390,10 @@
     begin="0.00"
     end="1000.00"
     probability="0.002"
+    color="magenta"
     departPos="random"
     departLane="best"
     departSpeed="random"
-    color="magenta"
     from="WC"
     to="CN"
   />
@@ -409,10 +404,10 @@
     begin="0.00"
     end="1000.00"
     probability="0.002"
+    color="green"
     departPos="random"
     departLane="best"
     departSpeed="random"
-    color="green"
     from="SC"
     to="CW"
   />
@@ -423,10 +418,10 @@
     begin="0.00"
     end="1000.00"
     probability="0.002"
+    color="green"
     departPos="random"
     departLane="best"
     departSpeed="random"
-    color="green"
     from="SC"
     to="CN"
   />
@@ -437,10 +432,10 @@
     begin="0.00"
     end="1000.00"
     probability="0.002"
+    color="green"
     departPos="random"
     departLane="best"
     departSpeed="random"
-    color="green"
     from="SC"
     to="CE"
   />
@@ -451,10 +446,10 @@
     begin="0.00"
     end="1000.00"
     probability="0.002"
+    color="blue"
     departPos="random"
     departLane="best"
     departSpeed="random"
-    color="blue"
     from="EC"
     to="CS"
   />
@@ -465,10 +460,10 @@
     begin="0.00"
     end="1000.00"
     probability="0.002"
+    color="blue"
     departPos="random"
     departLane="best"
     departSpeed="random"
-    color="blue"
     from="EC"
     to="CN"
   />
@@ -479,10 +474,10 @@
     begin="0.00"
     end="1000.00"
     probability="0.002"
+    color="blue"
     departPos="random"
     departLane="best"
     departSpeed="random"
-    color="blue"
     from="EC"
     to="CW"
   />
@@ -493,10 +488,10 @@
     begin="0.00"
     end="1000.00"
     probability="0.002"
+    color="orange"
     departPos="random"
     departLane="best"
     departSpeed="random"
-    color="orange"
     from="NC"
     to="CS"
   />
@@ -507,10 +502,10 @@
     begin="0.00"
     end="1000.00"
     probability="0.002"
+    color="orange"
     departPos="random"
     departLane="best"
     departSpeed="random"
-    color="orange"
     from="NC"
     to="CE"
   />
@@ -521,181 +516,61 @@
     begin="0.00"
     end="1000.00"
     probability="0.002"
+    color="orange"
     departPos="random"
     departLane="best"
     departSpeed="random"
-    color="orange"
     from="NC"
     to="CW"
   />
 
-  <!-- PEDESTRIANS -->
+  <!-- pedestrian personflows so ped data can be used for pipeline  -->
 
-  <flow
-    id="f_24"
-    type="ped"
-    begin="0.00"
-    end="1000.00"
-    probability="0.005"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
-    color="magenta"
-    from="WC"
-    to="CE"
-  />
+  <personFlow id="f_24" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+    <walk from="WC" to="CE" />
+  </personFlow>
 
-  <flow
-    id="f_25"
-    type="ped"
-    begin="0.00"
-    end="1000.00"
-    probability="0.005"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
-    color="magenta"
-    from="WC"
-    to="CS"
-  />
+  <personFlow id="f_25" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+    <walk from="WC" to="CS" />
+  </personFlow>
 
-  <flow
-    id="f_26"
-    type="ped"
-    begin="0.00"
-    end="1000.00"
-    probability="0.005"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
-    color="magenta"
-    from="WC"
-    to="CN"
-  />
+  <personFlow id="f_26" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+    <walk from="WC" to="CN" />
+  </personFlow>
 
-  <flow
-    id="f_27"
-    type="ped"
-    begin="0.00"
-    end="1000.00"
-    probability="0.005"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
-    color="green"
-    from="SC"
-    to="CE"
-  />
+  <personFlow id="f_27" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+    <walk from="SC" to="CE" />
+  </personFlow>
 
-  <flow
-    id="f_28"
-    type="ped"
-    begin="0.00"
-    end="1000.00"
-    probability="0.005"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
-    color="green"
-    from="SC"
-    to="CN"
-  />
+  <personFlow id="f_28" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+    <walk from="SC" to="CN" />
+  </personFlow>
 
-  <flow
-    id="f_29"
-    type="ped"
-    begin="0.00"
-    end="1000.00"
-    probability="0.005"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
-    color="green"
-    from="SC"
-    to="CW"
-  />
+  <personFlow id="f_29" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+    <walk from="SC" to="CW" />
+  </personFlow>
 
-  <flow
-    id="f_30"
-    type="ped"
-    begin="0.00"
-    end="1000.00"
-    probability="0.005"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
-    color="blue"
-    from="EC"
-    to="CS"
-  />
+  <personFlow id="f_30" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+    <walk from="EC" to="CS" />
+  </personFlow>
 
-  <flow
-    id="f_31"
-    type="ped"
-    begin="0.00"
-    end="1000.00"
-    probability="0.005"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
-    color="blue"
-    from="EC"
-    to="CW"
-  />
+  <personFlow id="f_31" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+    <walk from="EC" to="CW" />
+  </personFlow>
 
-  <flow
-    id="f_32"
-    type="ped"
-    begin="0.00"
-    end="1000.00"
-    probability="0.005"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
-    color="blue"
-    from="EC"
-    to="CN"
-  />
+  <personFlow id="f_32" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+    <walk from="EC" to="CN" />
+  </personFlow>
 
-  <flow
-    id="f_33"
-    type="ped"
-    begin="0.00"
-    end="1000.00"
-    probability="0.005"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
-    color="orange"
-    from="NC"
-    to="CS"
-  />
+  <personFlow id="f_33" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+    <walk from="NC" to="CS" />
+  </personFlow>
 
-  <flow
-    id="f_34"
-    type="ped"
-    begin="0.00"
-    end="1000.00"
-    probability="0.005"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
-    color="orange"
-    from="NC"
-    to="CE"
-  />
+  <personFlow id="f_34" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+    <walk from="NC" to="CE" />
+  </personFlow>
 
-  <flow
-    id="f_35"
-    type="ped"
-    begin="0.00"
-    end="1000.00"
-    probability="0.005"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
-    color="orange"
-    from="NC"
-    to="CW"
-  />
+  <personFlow id="f_35" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+    <walk from="NC" to="CW" />
+  </personFlow>
 </routes>
