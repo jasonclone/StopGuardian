@@ -5,27 +5,25 @@ import traci
 import csv
 import traceback
 
-# -----------------------------
-# Paths & Simulation Parameters
-# -----------------------------
 
-# * change to docker results directory if running in docker
+# Paths & Simulation Parameters
 HOST_RESULTS_DIR = "results"
 os.makedirs(HOST_RESULTS_DIR, exist_ok=True)
 
-# * change to docker config path if running in docker
-SUMO_CFG = "simulation/sumo/simulation.sumocfg"
+# Your actual SUMO config file
+SUMO_CFG = "simulation/sumo/test.sumocfg"
 
-SIM_STEPS = 1000
+# One episode = 10,000 steps (1000 sec @ 0.1 step-length)
+SIM_STEPS = 10000
 
 STEP_CSV = os.path.join(HOST_RESULTS_DIR, "fixed_time_metrics.csv")
 SUMMARY_CSV = os.path.join(HOST_RESULTS_DIR, "fixed_time_summary.csv")
 
 
-# -----------------------------
+
 # Utility Functions
-# -----------------------------
 def wait_for_tl(tl_id, timeout=15.0):
+    """Wait until the traffic light appears in TraCI."""
     start = time.time()
     while time.time() - start < timeout:
         try:
@@ -37,8 +35,8 @@ def wait_for_tl(tl_id, timeout=15.0):
     return False
 
 
-# TRUE QUEUE (excludes newly spawned vehicles)
 def get_true_queue(lane, new_vehicles):
+    """Queue = stopped vehicles excluding newly spawned ones."""
     veh_ids = traci.lane.getLastStepVehicleIDs(lane)
     queue = 0
     for vid in veh_ids:
@@ -49,9 +47,8 @@ def get_true_queue(lane, new_vehicles):
     return queue
 
 
-# -----------------------------
+
 # Fixed-Time Baseline
-# -----------------------------
 def run_fixed_time():
     print("Starting SUMO with config:", SUMO_CFG)
 
@@ -69,11 +66,20 @@ def run_fixed_time():
         traci.close()
         return
 
+    # All lanes controlled by TL C
     incoming_lanes = list(set(traci.trafficlight.getControlledLanes(tl_id)))
+
     if not incoming_lanes:
         print("ERROR: No incoming lanes detected.")
         traci.close()
         return
+
+    # Filter out pedestrian lanes for vehicle metrics
+    vehicle_lanes = []
+    for lane in incoming_lanes:
+        allowed = traci.lane.getAllowed(lane)
+        if "pedestrian" not in allowed:
+            vehicle_lanes.append(lane)
 
     try:
         logic = traci.trafficlight.getCompleteRedYellowGreenDefinition(tl_id)[0]
@@ -86,9 +92,7 @@ def run_fixed_time():
     print(f"Traffic light {tl_id} | Phases: {num_phases}")
     print("Running fixed-time baseline using SUMO's default timing...")
 
-    # -----------------------------
     # Episode-level trackers
-    # -----------------------------
     sum_wait = 0.0
     sum_queue = 0.0
     max_queue = 0
@@ -105,6 +109,7 @@ def run_fixed_time():
     step = 0
     try:
         while step < SIM_STEPS:
+
             prev_vehicles = set(traci.vehicle.getIDList())
 
             # DO NOT override SUMO's timing
@@ -115,18 +120,12 @@ def run_fixed_time():
             exited_vehicles = prev_vehicles - current_vehicles
             vehicles_completed.update(exited_vehicles)
 
-            # -----------------------------
-            # Vehicle metrics
-            # -----------------------------
-            total_wait = sum(traci.lane.getWaitingTime(l) for l in incoming_lanes)
-            total_queue = sum(get_true_queue(l, new_vehicles) for l in incoming_lanes)
-            total_vehicles = sum(
-                traci.lane.getLastStepVehicleNumber(l) for l in incoming_lanes
-            )
+            # Vehicle Metrics
+            total_wait = sum(traci.lane.getWaitingTime(l) for l in vehicle_lanes)
+            total_queue = sum(get_true_queue(l, new_vehicles) for l in vehicle_lanes)
+            total_vehicles = sum(traci.lane.getLastStepVehicleNumber(l) for l in vehicle_lanes)
 
-            # -----------------------------
-            # Pedestrian metrics
-            # -----------------------------
+            # Pedestrian Metrics
             ped_ids = traci.person.getIDList()
             ped_wait = 0.0
             ped_queue = 0
@@ -136,24 +135,16 @@ def run_fixed_time():
                     speed = traci.person.getSpeed(pid)
                     if speed < 0.1:
                         ped_queue += 1
-                    # waiting time for persons is supported in recent SUMO;
-                    # if not, this will just stay 0 and you can replace with your own logic
                     ped_wait += traci.person.getWaitingTime(pid)
                 except Exception:
-                    # if any person API is missing, skip gracefully
                     continue
 
-            # -----------------------------
-            # Reward (single scalar, multi-component)
-            # -----------------------------
-            # You can tune these weights later if you want to emphasize pedestrians more/less
+            # Reward Function
             vehicle_term = total_wait + total_queue
             pedestrian_term = ped_wait + ped_queue
             reward = -(vehicle_term + pedestrian_term)
 
-            # -----------------------------
-            # Accumulate episode-level stats
-            # -----------------------------
+            # Accumulate episode stats
             sum_wait += total_wait
             sum_queue += total_queue
             max_queue = max(max_queue, total_queue)
@@ -164,6 +155,7 @@ def run_fixed_time():
 
             cumulative_reward += reward
 
+            # Save step metrics
             step_metrics.append({
                 "step": step,
                 "total_waiting_time": total_wait,
@@ -185,29 +177,21 @@ def run_fixed_time():
 
     traci.close()
 
-    # -----------------------------
-    # Episode-level results
-    # -----------------------------
+
+    # Episode Summary
     avg_wait = sum_wait / SIM_STEPS
     avg_queue = sum_queue / SIM_STEPS
     avg_ped_wait = sum_ped_wait / SIM_STEPS
     avg_ped_queue = sum_ped_queue / SIM_STEPS
     throughput = len(vehicles_completed)
 
-    # -----------------------------
     # Write Step CSV
-    # -----------------------------
     with open(STEP_CSV, "w", newline="") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=step_metrics[0].keys()
-        )
+        writer = csv.DictWriter(f, fieldnames=step_metrics[0].keys())
         writer.writeheader()
         writer.writerows(step_metrics)
 
-    # -----------------------------
     # Write Summary CSV
-    # -----------------------------
     with open(SUMMARY_CSV, "w", newline="") as f:
         writer = csv.DictWriter(
             f,
