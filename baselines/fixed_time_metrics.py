@@ -35,16 +35,38 @@ def wait_for_tl(tl_id, timeout=15.0):
     return False
 
 
-def get_true_queue(lane, new_vehicles):
-    """Queue = stopped vehicles excluding newly spawned ones."""
-    veh_ids = traci.lane.getLastStepVehicleIDs(lane)
+
+# Generic Queue Function
+
+def get_true_queue_generic(ids, new_ids, get_speed_fn):
+    """
+    Generic queue counter for vehicles or pedestrians.
+    Counts entities with speed < 0.1, excluding newly spawned ones.
+    """
     queue = 0
-    for vid in veh_ids:
-        if vid in new_vehicles:
+    for eid in ids:
+        if eid in new_ids:
             continue
-        if traci.vehicle.getSpeed(vid) < 0.1:
+        if get_speed_fn(eid) < 0.1:
             queue += 1
     return queue
+
+
+def get_vehicle_queue(lane, new_vehicles):
+    veh_ids = traci.lane.getLastStepVehicleIDs(lane)
+    return get_true_queue_generic(
+        veh_ids,
+        new_vehicles,
+        lambda vid: traci.vehicle.getSpeed(vid)
+    )
+
+
+def get_ped_queue(ped_ids, new_peds):
+    return get_true_queue_generic(
+        ped_ids,
+        new_peds,
+        lambda pid: traci.person.getSpeed(pid)
+    )
 
 
 
@@ -93,9 +115,9 @@ def run_fixed_time():
     print("Running fixed-time baseline using SUMO's default timing...")
 
     # Episode-level trackers
-    sum_wait = 0.0
-    sum_queue = 0.0
-    max_queue = 0
+    sum_vehicle_wait = 0.0
+    sum_vehicle_queue = 0.0
+    max_vehicle_queue = 0
 
     sum_ped_wait = 0.0
     sum_ped_queue = 0.0
@@ -111,43 +133,55 @@ def run_fixed_time():
         while step < SIM_STEPS:
 
             prev_vehicles = set(traci.vehicle.getIDList())
+            prev_peds = set(traci.person.getIDList())
 
             # DO NOT override SUMO's timing
             traci.simulationStep()
 
             current_vehicles = set(traci.vehicle.getIDList())
+            current_peds = set(traci.person.getIDList())
+
             new_vehicles = current_vehicles - prev_vehicles
+            new_peds = current_peds - prev_peds
+
             exited_vehicles = prev_vehicles - current_vehicles
             vehicles_completed.update(exited_vehicles)
 
+            
             # Vehicle Metrics
-            total_wait = sum(traci.lane.getWaitingTime(l) for l in vehicle_lanes)
-            total_queue = sum(get_true_queue(l, new_vehicles) for l in vehicle_lanes)
-            total_vehicles = sum(traci.lane.getLastStepVehicleNumber(l) for l in vehicle_lanes)
+            
+            vehicle_wait = sum(traci.lane.getWaitingTime(l) for l in vehicle_lanes)
+            vehicle_queue = sum(get_vehicle_queue(l, new_vehicles) for l in vehicle_lanes)
+            vehicle_count = sum(traci.lane.getLastStepVehicleNumber(l) for l in vehicle_lanes)
 
+            
             # Pedestrian Metrics
-            ped_ids = traci.person.getIDList()
+            
+            ped_ids = current_peds
             ped_wait = 0.0
-            ped_queue = 0
+
+            # Use generic queue function
+            ped_queue = get_ped_queue(ped_ids, new_peds)
 
             for pid in ped_ids:
                 try:
-                    speed = traci.person.getSpeed(pid)
-                    if speed < 0.1:
-                        ped_queue += 1
                     ped_wait += traci.person.getWaitingTime(pid)
                 except Exception:
                     continue
 
+            
             # Reward Function
-            vehicle_term = total_wait + total_queue
+            
+            vehicle_term = vehicle_wait + vehicle_queue
             pedestrian_term = ped_wait + ped_queue
             reward = -(vehicle_term + pedestrian_term)
 
+            
             # Accumulate episode stats
-            sum_wait += total_wait
-            sum_queue += total_queue
-            max_queue = max(max_queue, total_queue)
+            
+            sum_vehicle_wait += vehicle_wait
+            sum_vehicle_queue += vehicle_queue
+            max_vehicle_queue = max(max_vehicle_queue, vehicle_queue)
 
             sum_ped_wait += ped_wait
             sum_ped_queue += ped_queue
@@ -155,12 +189,14 @@ def run_fixed_time():
 
             cumulative_reward += reward
 
+            
             # Save step metrics
+            
             step_metrics.append({
                 "step": step,
-                "total_waiting_time": total_wait,
-                "total_queue": total_queue,
-                "total_vehicles": total_vehicles,
+                "vehicle_waiting_time": vehicle_wait,
+                "vehicle_queue": vehicle_queue,
+                "vehicle_count": vehicle_count,
                 "ped_waiting_time": ped_wait,
                 "ped_queue": ped_queue,
                 "ped_count": len(ped_ids),
@@ -177,10 +213,11 @@ def run_fixed_time():
 
     traci.close()
 
-
+    
     # Episode Summary
-    avg_wait = sum_wait / SIM_STEPS
-    avg_queue = sum_queue / SIM_STEPS
+    
+    avg_vehicle_wait = sum_vehicle_wait / SIM_STEPS
+    avg_vehicle_queue = sum_vehicle_queue / SIM_STEPS
     avg_ped_wait = sum_ped_wait / SIM_STEPS
     avg_ped_queue = sum_ped_queue / SIM_STEPS
     throughput = len(vehicles_completed)
@@ -196,9 +233,9 @@ def run_fixed_time():
         writer = csv.DictWriter(
             f,
             fieldnames=[
-                "avg_waiting_time",
-                "avg_queue_length",
-                "max_queue_length",
+                "avg_vehicle_waiting_time",
+                "avg_vehicle_queue_length",
+                "max_vehicle_queue_length",
                 "avg_ped_waiting_time",
                 "avg_ped_queue_length",
                 "max_ped_queue_length",
@@ -209,9 +246,9 @@ def run_fixed_time():
         )
         writer.writeheader()
         writer.writerow({
-            "avg_waiting_time": avg_wait,
-            "avg_queue_length": avg_queue,
-            "max_queue_length": max_queue,
+            "avg_vehicle_waiting_time": avg_vehicle_wait,
+            "avg_vehicle_queue_length": avg_vehicle_queue,
+            "max_vehicle_queue_length": max_vehicle_queue,
             "avg_ped_waiting_time": avg_ped_wait,
             "avg_ped_queue_length": avg_ped_queue,
             "max_ped_queue_length": max_ped_queue,

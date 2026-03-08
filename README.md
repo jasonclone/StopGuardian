@@ -27,5 +27,5 @@ netconvert -n intersection.nod.xml -e intersection.edg.xml -o intersection.net.x
 docker build -t stopguardian .
 docker run --rm -it stopguardian
 
-*** To run without docker e.g.:
+*** Running a .py file without docker example:
 python baselines/fixed_time_metrics.py
