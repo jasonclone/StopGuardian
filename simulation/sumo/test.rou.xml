@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
+<!--simulation/sumo/test.rou.xml-->
 <!--
   FHWA DATA SOURCES USED IN THIS FILE
 
@@ -526,51 +526,51 @@
 
   <!-- pedestrian personflows so ped data can be used for pipeline  -->
 
-  <personFlow id="f_24" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+  <personFlow id="f_24" begin="0.00" end="1000.00" probability="0.01" departPos="random">
     <walk from="WC" to="CE" />
   </personFlow>
 
-  <personFlow id="f_25" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+  <personFlow id="f_25" begin="0.00" end="1000.00" probability="0.01" departPos="random">
     <walk from="WC" to="CS" />
   </personFlow>
 
-  <personFlow id="f_26" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+  <personFlow id="f_26" begin="0.00" end="1000.00" probability="0.01" departPos="random">
     <walk from="WC" to="CN" />
   </personFlow>
 
-  <personFlow id="f_27" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+  <personFlow id="f_27" begin="0.00" end="1000.00" probability="0.01" departPos="random">
     <walk from="SC" to="CE" />
   </personFlow>
 
-  <personFlow id="f_28" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+  <personFlow id="f_28" begin="0.00" end="1000.00" probability="0.01" departPos="random">
     <walk from="SC" to="CN" />
   </personFlow>
 
-  <personFlow id="f_29" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+  <personFlow id="f_29" begin="0.00" end="1000.00" probability="0.01" departPos="random">
     <walk from="SC" to="CW" />
   </personFlow>
 
-  <personFlow id="f_30" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+  <personFlow id="f_30" begin="0.00" end="1000.00" probability="0.01" departPos="random">
     <walk from="EC" to="CS" />
   </personFlow>
 
-  <personFlow id="f_31" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+  <personFlow id="f_31" begin="0.00" end="1000.00" probability="0.01" departPos="random">
     <walk from="EC" to="CW" />
   </personFlow>
 
-  <personFlow id="f_32" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+  <personFlow id="f_32" begin="0.00" end="1000.00" probability="0.01" departPos="random">
     <walk from="EC" to="CN" />
   </personFlow>
 
-  <personFlow id="f_33" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+  <personFlow id="f_33" begin="0.00" end="1000.00" probability="0.01" departPos="random">
     <walk from="NC" to="CS" />
   </personFlow>
 
-  <personFlow id="f_34" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+  <personFlow id="f_34" begin="0.00" end="1000.00" probability="0.01" departPos="random">
     <walk from="NC" to="CE" />
   </personFlow>
 
-  <personFlow id="f_35" begin="0.00" end="1000.00" probability="0.005" departPos="random">
+  <personFlow id="f_35" begin="0.00" end="1000.00" probability="0.01" departPos="random">
     <walk from="NC" to="CW" />
   </personFlow>
 </routes>
