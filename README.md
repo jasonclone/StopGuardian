@@ -27,5 +27,6 @@ netconvert -n intersection.nod.xml -e intersection.edg.xml -o intersection.net.x
 docker build -t stopguardian .
 docker run --rm -it stopguardian
 
-*** Running a .py file without docker example:
+*** Runs simulation of a baseline traffic scenario with data collection. (This command is for running without docker)
+** NOTE: Close sumo gui after simulation completes to retrieve data collection (stored in results folder)
 python baselines/fixed_time_metrics.py

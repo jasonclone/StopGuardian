@@ -20,7 +20,6 @@ STEP_CSV = os.path.join(HOST_RESULTS_DIR, "fixed_time_metrics.csv")
 SUMMARY_CSV = os.path.join(HOST_RESULTS_DIR, "fixed_time_summary.csv")
 
 
-
 # Utility Functions
 def wait_for_tl(tl_id, timeout=15.0):
     """Wait until the traffic light appears in TraCI."""
@@ -35,9 +34,7 @@ def wait_for_tl(tl_id, timeout=15.0):
     return False
 
 
-
 # Generic Queue Function
-
 def get_true_queue_generic(ids, new_ids, get_speed_fn):
     """
     Generic queue counter for vehicles or pedestrians.
@@ -69,13 +66,13 @@ def get_ped_queue(ped_ids, new_peds):
     )
 
 
-
 # Fixed-Time Baseline
 def run_fixed_time():
     print("Starting SUMO with config:", SUMO_CFG)
 
     try:
-        traci.start(["sumo", "-c", SUMO_CFG, "--start", "--no-step-log"])
+        # use sumo-gui instead of sumo
+        traci.start(["sumo-gui", "-c", SUMO_CFG, "--start", "--no-step-log"])
     except Exception:
         print("ERROR: Failed to start SUMO")
         traceback.print_exc()
@@ -147,20 +144,15 @@ def run_fixed_time():
             exited_vehicles = prev_vehicles - current_vehicles
             vehicles_completed.update(exited_vehicles)
 
-            
             # Vehicle Metrics
-            
             vehicle_wait = sum(traci.lane.getWaitingTime(l) for l in vehicle_lanes)
             vehicle_queue = sum(get_vehicle_queue(l, new_vehicles) for l in vehicle_lanes)
             vehicle_count = sum(traci.lane.getLastStepVehicleNumber(l) for l in vehicle_lanes)
 
-            
             # Pedestrian Metrics
-            
             ped_ids = current_peds
             ped_wait = 0.0
 
-            # Use generic queue function
             ped_queue = get_ped_queue(ped_ids, new_peds)
 
             for pid in ped_ids:
@@ -169,16 +161,12 @@ def run_fixed_time():
                 except Exception:
                     continue
 
-            
             # Reward Function
-            
             vehicle_term = vehicle_wait + vehicle_queue
             pedestrian_term = ped_wait + ped_queue
             reward = -(vehicle_term + pedestrian_term)
 
-            
             # Accumulate episode stats
-            
             sum_vehicle_wait += vehicle_wait
             sum_vehicle_queue += vehicle_queue
             max_vehicle_queue = max(max_vehicle_queue, vehicle_queue)
@@ -189,9 +177,7 @@ def run_fixed_time():
 
             cumulative_reward += reward
 
-            
             # Save step metrics
-            
             step_metrics.append({
                 "step": step,
                 "vehicle_waiting_time": vehicle_wait,
@@ -213,9 +199,7 @@ def run_fixed_time():
 
     traci.close()
 
-    
     # Episode Summary
-    
     avg_vehicle_wait = sum_vehicle_wait / SIM_STEPS
     avg_vehicle_queue = sum_vehicle_queue / SIM_STEPS
     avg_ped_wait = sum_ped_wait / SIM_STEPS
