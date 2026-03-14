@@ -14,6 +14,8 @@
         <begin value="0"/>
         <end value="1000"/>
         <step-length value="0.1"/>
+        <random value="true"/>   <!-- randomize the seed-->
+
     </time>
 
 </sumoConfiguration>
