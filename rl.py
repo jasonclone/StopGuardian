@@ -16,7 +16,8 @@ Features:
 - TensorBoard logging + CSV (per-step + per-episode)
 - Deterministic base seed + controlled episode variation
 - Multi-run scalability via --run_id
-
+- Distributional RL (C51)
+- Learning rate annealing
 """
 
 import os
@@ -60,7 +61,7 @@ parser.add_argument(
 parser.add_argument(
     "--steps_per_episode",
     type=int,
-    default=10000,
+    default=100,
     help="Number of environment steps per episode",
 )
 args = parser.parse_args()
@@ -120,17 +121,24 @@ sys.path.append(tools)
 
 import traci  # noqa: E402
 
+
 def make_sumo_config(seed: int) -> List[str]:
     # If you want GUI for eval/infer, you can switch to "sumo-gui" here.
-    binary = "sumo-gui"
+    binary = "sumo"
     return [
         binary,
-        "-c", "simulation/sumo/test.sumocfg",
-        "--step-length", "0.10",
-        "--delay", "1000",
-        "--lateral-resolution", "0",
-        "--seed", str(seed),
+        "-c",
+        "simulation/sumo/test.sumocfg",
+        "--step-length",
+        "0.10",
+        "--delay",
+        "1000",
+        "--lateral-resolution",
+        "0",
+        "--seed",
+        str(seed),
     ]
+
 
 # ================================================================
 #  Hyperparameters
@@ -143,7 +151,6 @@ BUFFER_SIZE = 120000
 BATCH_SIZE = 64
 MIN_REPLAY_SIZE = 2000  # minimum transitions before training
 
-TARGET_UPDATE_FREQ = 2500
 WARMUP_STEPS = 2000
 
 USE_EPSILON = False
@@ -159,22 +166,51 @@ PRIORITY_BETA_START = 0.4
 PRIORITY_BETA_END = 1.0
 
 NOISY_SIGMA = 0.5
-LEARNING_RATE = 0.00025
 
 QUEUE_NORM = 20.0
 PHASE_NORM = 10.0
 
 CHECKPOINT_EVERY_EPISODES = 5  # checkpoint every N episodes
 
+# Soft target update (Polyak)
+TAU = 0.005
+
+# ================================================================
+#  Distributional RL (C51) Hyperparameters
+# ================================================================
+
+V_MIN = -300000.0
+V_MAX = -1000.0
+NUM_ATOMS = 51
+DELTA_Z = (V_MAX - V_MIN) / (NUM_ATOMS - 1)
+Z_ATOMS = np.linspace(V_MIN, V_MAX, NUM_ATOMS, dtype=np.float32)
+
+# ================================================================
+#  Learning Rate Schedule
+# ================================================================
+
+LR_START = 0.00025
+LR_END = 0.00005
+LR_DECAY_STEPS = 500_000  # total steps over which to anneal
+
+
+def lr_schedule(global_step: int) -> float:
+    frac = min(global_step / LR_DECAY_STEPS, 1.0)
+    return LR_START + frac * (LR_END - LR_START)
+
+
 # ================================================================
 #  Environment Functions
 # ================================================================
 
+
 def get_queue_length(detector_id: str) -> int:
     return traci.lanearea.getLastStepVehicleNumber(detector_id)
 
+
 def get_current_phase(tls_id="C") -> int:
     return traci.trafficlight.getPhase(tls_id)
+
 
 def get_state():
     """Return (q_N, q_E, q_S, q_W, phase)."""
@@ -185,12 +221,14 @@ def get_state():
     phase = get_current_phase("C")
     return (q_N, q_E, q_S, q_W, phase)
 
+
 def normalize_state(s):
     q_N, q_E, q_S, q_W, phase = s
     return np.array(
         [q_N / QUEUE_NORM, q_E / QUEUE_NORM, q_S / QUEUE_NORM, q_W / QUEUE_NORM, phase / PHASE_NORM],
         dtype=np.float32,
     )
+
 
 def get_reward(state, prev_state=None):
     total_queue = sum(state[:-1])
@@ -199,6 +237,7 @@ def get_reward(state, prev_state=None):
         prev_q = sum(prev_state[:-1])
         reward += 0.25 * (prev_q - total_queue)  # queue reduction shaping
     return reward
+
 
 def apply_action_safe(action, tls_id="C"):
     program = traci.trafficlight.getAllProgramLogics(tls_id)[0]
@@ -212,9 +251,11 @@ def apply_action_safe(action, tls_id="C"):
     if action == 1:
         traci.trafficlight.setPhase(tls_id, (phase + 1) % len(program.phases))
 
+
 # ================================================================
 #  Noisy Dense Layer
 # ================================================================
+
 
 class NoisyDense(layers.Layer):
     def __init__(self, units, sigma_init=NOISY_SIGMA, **kwargs):
@@ -246,6 +287,7 @@ class NoisyDense(layers.Layer):
         )
 
     def call(self, x, training=None):
+        # Resample noise every forward pass when training=True
         if training:
             eps_in = tf.random.normal((self.w_mu.shape[0],))
             eps_out = tf.random.normal((self.units,))
@@ -264,45 +306,55 @@ class NoisyDense(layers.Layer):
 
         return tf.matmul(x, w) + b
 
+
 # ================================================================
 #  Dueling helper (registered for safe serialization)
 # ================================================================
+
 
 @tf.keras.utils.register_keras_serializable()
 def dueling_mean(t):
     """Reduce mean over actions for dueling architecture."""
     return tf.reduce_mean(t, axis=1, keepdims=True)
 
+
 # ================================================================
-#  Rainbow DQN Model (Dueling + Noisy)
+#  Rainbow DQN Model (Dueling + Noisy + C51)
 # ================================================================
+
 
 def build_rainbow_model(state_size, num_actions):
     inputs = layers.Input(shape=(state_size,))
     x = layers.Dense(128, activation="relu")(inputs)
     x = layers.Dense(128, activation="relu")(x)
 
-    # Value stream
+    # Value stream: NUM_ATOMS logits
     v = NoisyDense(128)(x)
     v = layers.ReLU()(v)
-    v = NoisyDense(1)(v)
+    v = NoisyDense(NUM_ATOMS)(v)  # [B, NUM_ATOMS]
 
-    # Advantage stream
+    # Advantage stream: num_actions * NUM_ATOMS logits
     a = NoisyDense(128)(x)
     a = layers.ReLU()(a)
-    a = NoisyDense(num_actions)(a)
+    a = NoisyDense(num_actions * NUM_ATOMS)(a)  # [B, num_actions * NUM_ATOMS]
+    a = layers.Reshape((num_actions, NUM_ATOMS))(a)  # [B, num_actions, NUM_ATOMS]
 
-    # Use registered function instead of anonymous lambda
-    a_mean = layers.Lambda(dueling_mean, name="dueling_mean")(a)
-    q = layers.Add()([v, layers.Subtract()([a, a_mean])])
+    # Dueling combination
+    a_mean = layers.Lambda(dueling_mean)(a)  # [B, 1, NUM_ATOMS]
+    v_expanded = layers.Lambda(lambda x: tf.expand_dims(x, axis=1))(v)  # [B, 1, NUM_ATOMS]
 
-    model = Model(inputs=inputs, outputs=q)
-    model.compile(optimizer=optimizers.Adam(learning_rate=LEARNING_RATE), loss="mse")
-    return model
+    q_atoms = layers.Add()([v_expanded, layers.Subtract()([a, a_mean])])  # [B, num_actions, NUM_ATOMS]
+
+    # C51 softmax over atoms
+    q_dist = layers.Softmax(axis=-1)(q_atoms)
+
+    return Model(inputs=inputs, outputs=q_dist)
+
 
 # ================================================================
 #  Prioritized Replay Buffer (with persistence)
 # ================================================================
+
 
 @dataclass
 class ReplayState:
@@ -310,6 +362,7 @@ class ReplayState:
     pos: int
     priorities: np.ndarray
     n_step_buffer: list
+
 
 class PrioritizedReplayBuffer:
     def __init__(self, capacity, alpha, n_steps, gamma):
@@ -328,27 +381,54 @@ class PrioritizedReplayBuffer:
     def _priority(self, td_error):
         return (abs(td_error) + 1e-6) ** self.alpha
 
-    def add(self, s, a, r, s_next, done):
-        self.n_step_buffer.append((s, a, r, s_next, done))
-        if len(self.n_step_buffer) < self.n_steps:
-            return
-        R = sum((self.gamma ** i) * r_i for i, (_, _, r_i, _, _) in enumerate(self.n_step_buffer))
-        s0, a0, _, _, _ = self.n_step_buffer[0]
-        _, _, _, sN, dN = self.n_step_buffer[-1]
+    def _append_transition(self, s0, a0, R, sN, dN):
         if len(self.buffer) < self.capacity:
             self.buffer.append((s0, a0, R, sN, dN))
         else:
             self.buffer[self.pos] = (s0, a0, R, sN, dN)
-        max_prio = self.priorities.max() if self.buffer else 1.0
+
+        if len(self.buffer) > 0:
+            max_prio = self.priorities[: len(self.buffer)].max()
+        else:
+            max_prio = 1.0
+        max_prio = max(max_prio, 1.0)
+
         self.priorities[self.pos] = max_prio
         self.pos = (self.pos + 1) % self.capacity
+
+    def add(self, s, a, r, s_next, done):
+        self.n_step_buffer.append((s, a, r, s_next, done))
+        if len(self.n_step_buffer) < self.n_steps:
+            return
+
+        R = 0.0
+        for i, (_, _, r_i, _, _) in enumerate(self.n_step_buffer):
+            R += (self.gamma ** i) * r_i
+
+        s0, a0, _, _, _ = self.n_step_buffer[0]
+        _, _, _, sN, dN = self.n_step_buffer[-1]
+
+        self._append_transition(s0, a0, R, sN, dN)
         self.n_step_buffer.pop(0)
+
+    def flush(self):
+        # Flush remaining transitions at episode end
+        while len(self.n_step_buffer) > 0:
+            R = 0.0
+            for i, (_, _, r_i, _, _) in enumerate(self.n_step_buffer):
+                R += (self.gamma ** i) * r_i
+
+            s0, a0, _, _, _ = self.n_step_buffer[0]
+            _, _, _, sN, dN = self.n_step_buffer[-1]
+
+            self._append_transition(s0, a0, R, sN, dN)
+            self.n_step_buffer.pop(0)
 
     def sample(self, batch_size, beta):
         if len(self.buffer) == self.capacity:
             prios = self.priorities
         else:
-            prios = self.priorities[: self.pos]
+            prios = self.priorities[:len(self.buffer)]
         prio_sum = prios.sum()
         if prio_sum <= 0 or np.isnan(prio_sum):
             prios = np.ones_like(prios)
@@ -393,9 +473,72 @@ class PrioritizedReplayBuffer:
         self.priorities = state.priorities
         self.n_step_buffer = state.n_step_buffer
 
+
+# ================================================================
+#  C51 Projection
+# ================================================================
+
+
+def project_distribution(next_dist, rewards, dones, gamma_n):
+    """
+    next_dist: [B, NUM_ATOMS] distribution for chosen next actions
+    rewards:   [B]
+    dones:     [B] (bool or 0/1)
+    gamma_n:   scalar (GAMMA ** N_STEPS)
+    """
+    batch_size = rewards.shape[0]
+    projected = np.zeros((batch_size, NUM_ATOMS), dtype=np.float32)
+
+    for b in range(batch_size):
+        r = rewards[b]
+        done = bool(dones[b])
+
+        if done:
+            # Collapse to reward distribution at terminal
+            b_j = (r - V_MIN) / DELTA_Z
+            b_j = np.clip(b_j, 0, NUM_ATOMS - 1)
+            l = int(np.floor(b_j))
+            u = int(np.ceil(b_j))
+            if l == u:
+                projected[b, l] = 1.0
+            else:
+                projected[b, l] = u - b_j
+                projected[b, u] = b_j - l
+            continue
+
+        for j in range(NUM_ATOMS):
+            z_j = Z_ATOMS[j]
+            tz_j = np.clip(r + gamma_n * z_j, V_MIN, V_MAX)
+            b_j = (tz_j - V_MIN) / DELTA_Z
+            l = int(np.floor(b_j))
+            u = int(np.ceil(b_j))
+
+            if l == u:
+                projected[b, l] += next_dist[b, j]
+            else:
+                projected[b, l] += next_dist[b, j] * (u - b_j)
+                projected[b, u] += next_dist[b, j] * (b_j - l)
+
+    projected /= np.clip(projected.sum(axis=1, keepdims=True), 1e-8, None)
+    return projected
+
+
+# ================================================================
+#  Target Network Soft Update
+# ================================================================
+
+
+def soft_update(target, online, tau=TAU):
+    target_weights = target.get_weights()
+    online_weights = online.get_weights()
+    new_weights = [(1.0 - tau) * tw + tau * ow for tw, ow in zip(target_weights, online_weights)]
+    target.set_weights(new_weights)
+
+
 # ================================================================
 #  Build Models & Replay
 # ================================================================
+
 
 def init_models_and_replay():
     # Start a short SUMO run just to get state size
@@ -408,6 +551,10 @@ def init_models_and_replay():
     online_model = build_rainbow_model(state_size, NUM_ACTIONS)
     target_model = build_rainbow_model(state_size, NUM_ACTIONS)
     target_model.set_weights(online_model.get_weights())
+
+    # Attach optimizers (LR will be annealed in train_step)
+    online_model.optimizer = optimizers.Adam(learning_rate=LR_START)
+    target_model.optimizer = optimizers.Adam(learning_rate=LR_START)
 
     replay_buffer = PrioritizedReplayBuffer(BUFFER_SIZE, PRIORITY_ALPHA, N_STEPS, GAMMA)
     replay_buffer.load(REPLAY_PATH)
@@ -424,17 +571,22 @@ def init_models_and_replay():
             custom_objects={"NoisyDense": NoisyDense, "dueling_mean": dueling_mean},
             safe_mode=False,
         )
+        online_model.optimizer = optimizers.Adam(learning_rate=LR_START)
+        target_model.optimizer = optimizers.Adam(learning_rate=LR_START)
         print(f"Loaded last model from {LAST_MODEL_PATH}")
 
     return online_model, target_model, replay_buffer
+
 
 best_metric = None
 if os.path.exists(BEST_MODEL_PATH):
     print(f"Best model already exists at {BEST_MODEL_PATH}")
 
+
 # ================================================================
 #  Action Selection
 # ================================================================
+
 
 def select_action(state, step, mode: str, online_model):
     s_norm = normalize_state(state).reshape(1, -1)
@@ -451,69 +603,106 @@ def select_action(state, step, mode: str, online_model):
             if random.random() < eps:
                 return random.choice(ACTIONS)
 
-    # EVAL / INFER: greedy, no exploration
-    q_vals = online_model.predict(s_norm, verbose=0)[0]
+    training_flag = mode == "train"
+    dist = online_model(s_norm, training=training_flag).numpy()[0]  # [num_actions, NUM_ATOMS]
+    q_vals = np.sum(dist * Z_ATOMS[None, :], axis=1)  # [num_actions]
     return int(np.argmax(q_vals))
 
+
 # ================================================================
-#  Training Step
+#  Training Step (Distributional Double DQN + LR Annealing + Clipping)
 # ================================================================
 
-def train_step(beta, online_model, target_model, replay_buffer) -> Optional[float]:
+def train_step(beta, online_model, target_model, replay_buffer, global_step) -> Optional[float]:
     if MODE != "train":
         return None
     if len(replay_buffer) < MIN_REPLAY_SIZE:
         return None
 
+    # Sample batch
     states, actions, rewards, next_states, dones, idxs, weights = replay_buffer.sample(BATCH_SIZE, beta)
-    states_norm = np.array([normalize_state(s) for s in states])
-    next_states_norm = np.array([normalize_state(s) for s in next_states])
+    actions = np.array(actions, dtype=np.int32)  # ensure correct dtype
+    states_norm = np.array([normalize_state(s) for s in states], dtype=np.float32)
+    next_states_norm = np.array([normalize_state(s) for s in next_states], dtype=np.float32)
 
-    # Double DQN
-    online_next_q = online_model.predict(next_states_norm, verbose=0)
+    #   Double DQN action selection
+    online_next_dist = online_model(next_states_norm, training=False).numpy()  # [B, A, ATOMS]
+    online_next_q = np.sum(online_next_dist * Z_ATOMS[None, None, :], axis=2)
     next_actions = np.argmax(online_next_q, axis=1)
-    target_next_q = target_model.predict(next_states_norm, verbose=0)
-    target_q_vals = target_next_q[np.arange(BATCH_SIZE), next_actions]
 
-    targets = online_model.predict(states_norm, verbose=0)
-    td_errors = np.zeros(BATCH_SIZE)
+    #   Target distribution
+    target_next_dist_all = target_model(next_states_norm, training=False).numpy()
+    target_next_dist = target_next_dist_all[np.arange(BATCH_SIZE), next_actions, :]
 
-    for i in range(BATCH_SIZE):
-        a, r, done = actions[i], rewards[i], dones[i]
-        q_old = targets[i, a]
-        q_target = r if done else r + (GAMMA ** N_STEPS) * target_q_vals[i]
-        td_errors[i] = q_target - q_old
-        targets[i, a] = q_target
+    gamma_n = GAMMA ** N_STEPS
+    target_proj = project_distribution(target_next_dist, rewards, dones, gamma_n)
 
+    #   Forward + loss
     with tf.GradientTape() as tape:
-        q_pred = online_model(states_norm, training=True)
-        q_taken = tf.reduce_sum(q_pred * tf.one_hot(actions, NUM_ACTIONS), axis=1)
-        loss = tf.reduce_mean(weights * tf.square(q_taken - targets[np.arange(BATCH_SIZE), actions]))
+        dist_pred_all = online_model(states_norm, training=True)
+        action_one_hot = tf.one_hot(actions, NUM_ACTIONS, dtype=tf.float32)
+        dist_pred = tf.reduce_sum(dist_pred_all * action_one_hot[:, :, None], axis=1)
 
-    grads = tape.gradient(loss, online_model.trainable_variables)
-    online_model.optimizer.apply_gradients(zip(grads, online_model.trainable_variables))
+        dist_pred = tf.clip_by_value(dist_pred, 1e-8, 1.0)
+        target_proj_tf = tf.convert_to_tensor(target_proj, dtype=tf.float32)
+
+        ce = -tf.reduce_sum(target_proj_tf * tf.math.log(dist_pred), axis=1)
+        w = tf.convert_to_tensor(weights, dtype=tf.float32)
+        loss = tf.reduce_mean(w * ce)
+
+    #   Loss NaN / Inf guard
+    loss_val = loss.numpy()
+    if not np.isfinite(loss_val):
+        print("⚠️ Warning: Non-finite loss detected (NaN or Inf). Skipping update.")
+        return None
+
+    #   PER TD-error update
+    dist_pred_np = dist_pred.numpy()
+    pred_q = np.sum(dist_pred_np * Z_ATOMS[None, :], axis=1)
+    target_q = np.sum(target_proj * Z_ATOMS[None, :], axis=1)
+    td_errors = target_q - pred_q
     replay_buffer.update_priorities(idxs, td_errors)
-    return float(loss.numpy())
+
+    #   LR annealing
+    lr = lr_schedule(global_step)
+    online_model.optimizer.learning_rate.assign(lr)
+
+    #   Gradient NaN / Inf guard
+    grads = tape.gradient(loss, online_model.trainable_variables)
+    grad_norm = tf.linalg.global_norm(grads).numpy()
+    if not np.isfinite(grad_norm):
+        print("⚠️ Warning: Non-finite gradients detected. Skipping update.")
+        return None
+
+    #   Gradient clipping + apply
+    grads, _ = tf.clip_by_global_norm(grads, 10.0)
+    online_model.optimizer.apply_gradients(zip(grads, online_model.trainable_variables))
+
+    return float(loss_val)
+
+
 
 # ================================================================
 #  Helpers
 # ================================================================
+
 
 def moving_avg(data, window=50):
     if len(data) < window:
         return float(np.mean(data)) if data else 0.0
     return float(np.mean(data[-window:]))
 
+
 # ================================================================
 #  Main Episode-Based Loop
 # ================================================================
+
 
 def run():
     global best_metric
 
     online_model, target_model, replay_buffer = init_models_and_replay()
 
-    # For CSV logging
     step_rows: List[Dict[str, Any]] = []
     episode_rows: List[Dict[str, Any]] = []
 
@@ -525,7 +714,6 @@ def run():
     print(f"Episodes: {NUM_EPISODES}, Steps per episode: {STEPS_PER_EPISODE}")
 
     for ep in range(NUM_EPISODES):
-        # New seed per episode to avoid overfitting one scenario
         episode_seed = GLOBAL_SEED + ep * 1000
         traci.start(make_sumo_config(episode_seed))
 
@@ -548,22 +736,22 @@ def run():
                 reward = get_reward(new_state, prev_state)
                 cumulative_reward += reward
 
+                done = t == STEPS_PER_EPISODE - 1
+
                 if MODE == "train":
-                    replay_buffer.add(state, action, reward, new_state, False)
-                    loss = train_step(beta, online_model, target_model, replay_buffer)
+                    replay_buffer.add(state, action, reward, new_state, done)
+                    loss = train_step(beta, online_model, target_model, replay_buffer, step_idx)
                     beta = min(PRIORITY_BETA_END, beta + beta_increment)
+                    soft_update(target_model, online_model)
                 else:
                     loss = None
-
-                if step_idx % TARGET_UPDATE_FREQ == 0 and step_idx > 0 and MODE == "train":
-                    target_model.set_weights(online_model.get_weights())
 
                 queue_len = sum(new_state[:-1])
                 queue_history_ep.append(queue_len)
                 prev_state = new_state
 
                 queue_ma = moving_avg(queue_history_ep, window=50)
-                loss_str = f"{loss:.2f}" if loss is not None else "--"
+                loss_str = f"{loss:.4f}" if loss is not None else "--"
 
                 if step_idx % 100 == 0:
                     print(
@@ -572,7 +760,6 @@ def run():
                         f"Queue MA50: {queue_ma:6.2f} | Loss: {loss_str}"
                     )
 
-                # TensorBoard per-step logging
                 if tb_writer is not None and MODE in ["train", "eval"]:
                     with tb_writer.as_default():
                         tf.summary.scalar("step_reward", reward, step=step_idx)
@@ -580,7 +767,6 @@ def run():
                         if loss is not None:
                             tf.summary.scalar("loss", loss, step=step_idx)
 
-                # Save per-step row
                 step_rows.append(
                     {
                         "global_step": step_idx,
@@ -595,14 +781,14 @@ def run():
                 total_steps_global += 1
 
         finally:
+            if MODE == "train":
+                replay_buffer.flush()
             traci.close()
 
-        # Episode-level metrics
         avg_queue_ep = float(np.mean(queue_history_ep)) if queue_history_ep else float("inf")
         min_queue_ep = float(np.min(queue_history_ep)) if queue_history_ep else float("inf")
         max_queue_ep = float(np.max(queue_history_ep)) if queue_history_ep else float("inf")
 
-        # TensorBoard per-episode logging
         if tb_writer is not None and MODE in ["train", "eval"]:
             with tb_writer.as_default():
                 tf.summary.scalar("episode_cumulative_reward", cumulative_reward, step=ep)
@@ -618,7 +804,6 @@ def run():
             f"Max Queue = {max_queue_ep:.2f}"
         )
 
-        # Save per-episode row
         episode_rows.append(
             {
                 "episode": ep,
@@ -630,13 +815,11 @@ def run():
             }
         )
 
-        # Checkpointing by episode
         if MODE == "train" and (ep + 1) % CHECKPOINT_EVERY_EPISODES == 0:
             online_model.save(LAST_MODEL_PATH)
             replay_buffer.save(REPLAY_PATH)
             print(f"[Checkpoint] Saved last model + replay at episode {ep+1}")
 
-        # Best-model tracking by episode metric (negative avg queue)
         if MODE == "train":
             metric = -avg_queue_ep
             if best_metric is None or metric > best_metric or not os.path.exists(BEST_MODEL_PATH):
@@ -644,7 +827,6 @@ def run():
                 online_model.save(BEST_MODEL_PATH)
                 print(f"[Best] Updated best model at episode {ep+1} (metric={metric:.4f})")
 
-    # Final save
     if MODE == "train":
         online_model.save(LAST_MODEL_PATH)
         replay_buffer.save(REPLAY_PATH)
@@ -653,31 +835,17 @@ def run():
     print("\nRun complete.")
     online_model.summary()
 
-    # ============================================================
-    #  Save CSVs
-    # ============================================================
-
     if step_rows:
         with open(RL_STEP_CSV, "w", newline="") as f:
-            writer = csv.DictWriter(
-                f,
-                fieldnames=list(step_rows[0].keys()),
-            )
+            writer = csv.DictWriter(f, fieldnames=list(step_rows[0].keys()))
             writer.writeheader()
             writer.writerows(step_rows)
 
     if episode_rows:
         with open(RL_EPISODE_CSV, "w", newline="") as f:
-            writer = csv.DictWriter(
-                f,
-                fieldnames=list(episode_rows[0].keys()),
-            )
+            writer = csv.DictWriter(f, fieldnames=list(episode_rows[0].keys()))
             writer.writeheader()
             writer.writerows(episode_rows)
-
-    # ============================================================
-    #  Simple Plot (episode-level)
-    # ============================================================
 
     if episode_rows:
         eps = [r["episode"] for r in episode_rows]
