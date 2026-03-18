@@ -1,6 +1,7 @@
 numpy
 pandas
 matplotlib
-torch
+torch==2.1.0
+torch-directml
 gymnasium
 traci
