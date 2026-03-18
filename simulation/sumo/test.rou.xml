@@ -17,7 +17,7 @@
     jmDriveAfterRedTime added for realistic aggressive behavior.
   - Replaced high deterministic perHour/car bursts with per-second Poisson-like
     probabilities for turning splits (straight/left/right).
-  - All flows spawn at edge start (departPos="random"), use departLane="best",
+  - All flows spawn at edge start (departPos="0"), use departLane="best",
     and departSpeed="random" for realistic entry speeds.
   - Removed any attributes that are invalid for <vType> in SUMO schema.
 -->
@@ -26,6 +26,7 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd"
 >
+  <!-- VEHICLE TYPE DISTRIBUTION (unchanged) -->
   <vTypeDistribution id="vehDist">
     <vType
       id="car_sedan"
@@ -84,8 +85,8 @@
     <vType
       id="truck"
       vClass="truck"
-      length="15.0"
-      accel="1.2"
+      length="12.0"
+      accel="1.5"
       decel="3.5"
       maxSpeed="11.1"
       sigma="0.7"
@@ -102,8 +103,8 @@
     <vType
       id="bus"
       vClass="bus"
-      length="12.0"
-      accel="1.5"
+      length="10.0"
+      accel="1.7"
       decel="3.5"
       maxSpeed="11.1"
       sigma="0.7"
@@ -155,6 +156,7 @@
     />
   </vTypeDistribution>
 
+  <!-- BIKE + PED TYPES -->
   <vType
     id="bike"
     vClass="bicycle"
@@ -183,394 +185,411 @@
     jmIgnoreJunctionFoeProb="0.02"
   />
 
-  <!-- WEST VEHICLES -->
+  <!-- ========================= -->
+  <!-- WEST APPROACH (WC → … )   -->
+  <!-- ========================= -->
+
   <flow
     id="car_WC_CE"
     type="vehDist"
-    begin="0.00"
-    end="1000.00"
-    probability="0.14"
+    begin="0"
+    end="100000"
+    vehsPerHour="504"
     color="magenta"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="WC"
     to="CE"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="car_WC_CN"
     type="vehDist"
-    begin="0.00"
-    end="1000.00"
-    probability="0.04"
+    begin="0"
+    end="100000"
+    vehsPerHour="144"
     color="magenta"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="WC"
     to="CN"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="car_WC_CS"
     type="vehDist"
-    begin="0.00"
-    end="1000.00"
-    probability="0.06"
+    begin="0"
+    end="100000"
+    vehsPerHour="216"
     color="magenta"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="WC"
     to="CS"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
-  <!-- SOUTH VEHICLES -->
+  <!-- ========================= -->
+  <!-- SOUTH APPROACH (SC → … )  -->
+  <!-- ========================= -->
+
   <flow
     id="car_SC_CN"
     type="vehDist"
-    begin="0.00"
-    end="1000.00"
-    probability="0.14"
+    begin="0"
+    end="100000"
+    vehsPerHour="504"
     color="green"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="SC"
     to="CN"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="car_SC_CE"
     type="vehDist"
-    begin="0.00"
-    end="1000.00"
-    probability="0.04"
+    begin="0"
+    end="100000"
+    vehsPerHour="144"
     color="green"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="SC"
     to="CE"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="car_SC_CW"
     type="vehDist"
-    begin="0.00"
-    end="1000.00"
-    probability="0.06"
+    begin="0"
+    end="100000"
+    vehsPerHour="216"
     color="green"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="SC"
     to="CW"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
-  <!-- EAST VEHICLES -->
+  <!-- ========================= -->
+  <!-- EAST APPROACH (EC → … )   -->
+  <!-- ========================= -->
+
   <flow
     id="car_EC_CW"
     type="vehDist"
-    begin="0.00"
-    end="1000.00"
-    probability="0.14"
+    begin="0"
+    end="100000"
+    vehsPerHour="504"
     color="blue"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="EC"
     to="CW"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="car_EC_CS"
     type="vehDist"
-    begin="0.00"
-    end="1000.00"
-    probability="0.04"
+    begin="0"
+    end="100000"
+    vehsPerHour="144"
     color="blue"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="EC"
     to="CS"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="car_EC_CN"
     type="vehDist"
-    begin="0.00"
-    end="1000.00"
-    probability="0.06"
+    begin="0"
+    end="100000"
+    vehsPerHour="216"
     color="blue"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="EC"
     to="CN"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
-  <!-- NORTH VEHICLES -->
+  <!-- ========================= -->
+  <!-- NORTH APPROACH (NC → … )  -->
+  <!-- ========================= -->
+
   <flow
     id="car_NC_CW"
     type="vehDist"
-    begin="0.00"
-    end="1000.00"
-    probability="0.14"
+    begin="0"
+    end="100000"
+    vehsPerHour="504"
     color="orange"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="NC"
     to="CW"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="car_NC_CS"
     type="vehDist"
-    begin="0.00"
-    end="1000.00"
-    probability="0.04"
+    begin="0"
+    end="100000"
+    vehsPerHour="144"
     color="orange"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="NC"
     to="CS"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="car_NC_CE"
     type="vehDist"
-    begin="0.00"
-    end="1000.00"
-    probability="0.06"
+    begin="0"
+    end="100000"
+    vehsPerHour="216"
     color="orange"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="NC"
     to="CE"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
-  <!-- BIKE FLOWS -->
+  <!-- ========================= -->
+  <!-- BIKE FLOWS (7.2/hr)       -->
+  <!-- ========================= -->
+
   <flow
     id="f_12"
     type="bike"
-    begin="0.00"
-    end="1000.00"
-    probability="0.002"
+    begin="0"
+    end="100000"
+    vehsPerHour="7.2"
     color="magenta"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="WC"
     to="CE"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="f_13"
     type="bike"
-    begin="0.00"
-    end="1000.00"
-    probability="0.002"
+    begin="0"
+    end="100000"
+    vehsPerHour="7.2"
     color="magenta"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="WC"
     to="CS"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="f_14"
     type="bike"
-    begin="0.00"
-    end="1000.00"
-    probability="0.002"
+    begin="0"
+    end="100000"
+    vehsPerHour="7.2"
     color="magenta"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="WC"
     to="CN"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="f_15"
     type="bike"
-    begin="0.00"
-    end="1000.00"
-    probability="0.002"
+    begin="0"
+    end="100000"
+    vehsPerHour="7.2"
     color="green"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="SC"
     to="CW"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="f_16"
     type="bike"
-    begin="0.00"
-    end="1000.00"
-    probability="0.002"
+    begin="0"
+    end="100000"
+    vehsPerHour="7.2"
     color="green"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="SC"
     to="CN"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="f_17"
     type="bike"
-    begin="0.00"
-    end="1000.00"
-    probability="0.002"
+    begin="0"
+    end="100000"
+    vehsPerHour="7.2"
     color="green"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="SC"
     to="CE"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="f_18"
     type="bike"
-    begin="0.00"
-    end="1000.00"
-    probability="0.002"
+    begin="0"
+    end="100000"
+    vehsPerHour="7.2"
     color="blue"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="EC"
     to="CS"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="f_19"
     type="bike"
-    begin="0.00"
-    end="1000.00"
-    probability="0.002"
+    begin="0"
+    end="100000"
+    vehsPerHour="7.2"
     color="blue"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="EC"
     to="CN"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="f_20"
     type="bike"
-    begin="0.00"
-    end="1000.00"
-    probability="0.002"
+    begin="0"
+    end="100000"
+    vehsPerHour="7.2"
     color="blue"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="EC"
     to="CW"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="f_21"
     type="bike"
-    begin="0.00"
-    end="1000.00"
-    probability="0.002"
+    begin="0"
+    end="100000"
+    vehsPerHour="7.2"
     color="orange"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="NC"
     to="CS"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="f_22"
     type="bike"
-    begin="0.00"
-    end="1000.00"
-    probability="0.002"
+    begin="0"
+    end="100000"
+    vehsPerHour="7.2"
     color="orange"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="NC"
     to="CE"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
   <flow
     id="f_23"
     type="bike"
-    begin="0.00"
-    end="1000.00"
-    probability="0.002"
+    begin="0"
+    end="100000"
+    vehsPerHour="7.2"
     color="orange"
-    departPos="random"
-    departLane="best"
-    departSpeed="random"
     from="NC"
     to="CW"
+    departPos="0"
+    departLane="best"
+    departSpeed="random"
   />
 
-  <!-- pedestrian personflows so ped data can be used for pipeline  -->
+  <!-- ========================= -->
+  <!-- PEDESTRIAN FLOWS (36/hr) -->
+  <!-- ========================= -->
 
-  <personFlow id="f_24" begin="0.00" end="1000.00" probability="0.01" departPos="random">
+  <personFlow id="f_24" begin="0" end="100000" vehsPerHour="36">
     <walk from="WC" to="CE" />
   </personFlow>
 
-  <personFlow id="f_25" begin="0.00" end="1000.00" probability="0.01" departPos="random">
+  <personFlow id="f_25" begin="0" end="100000" vehsPerHour="36">
     <walk from="WC" to="CS" />
   </personFlow>
 
-  <personFlow id="f_26" begin="0.00" end="1000.00" probability="0.01" departPos="random">
+  <personFlow id="f_26" begin="0" end="100000" vehsPerHour="36">
     <walk from="WC" to="CN" />
   </personFlow>
 
-  <personFlow id="f_27" begin="0.00" end="1000.00" probability="0.01" departPos="random">
+  <personFlow id="f_27" begin="0" end="100000" vehsPerHour="36">
     <walk from="SC" to="CE" />
   </personFlow>
 
-  <personFlow id="f_28" begin="0.00" end="1000.00" probability="0.01" departPos="random">
+  <personFlow id="f_28" begin="0" end="100000" vehsPerHour="36">
     <walk from="SC" to="CN" />
   </personFlow>
 
-  <personFlow id="f_29" begin="0.00" end="1000.00" probability="0.01" departPos="random">
+  <personFlow id="f_29" begin="0" end="100000" vehsPerHour="36">
     <walk from="SC" to="CW" />
   </personFlow>
 
-  <personFlow id="f_30" begin="0.00" end="1000.00" probability="0.01" departPos="random">
+  <personFlow id="f_30" begin="0" end="100000" vehsPerHour="36">
     <walk from="EC" to="CS" />
   </personFlow>
 
-  <personFlow id="f_31" begin="0.00" end="1000.00" probability="0.01" departPos="random">
+  <personFlow id="f_31" begin="0" end="100000" vehsPerHour="36">
     <walk from="EC" to="CW" />
   </personFlow>
 
-  <personFlow id="f_32" begin="0.00" end="1000.00" probability="0.01" departPos="random">
+  <personFlow id="f_32" begin="0" end="100000" vehsPerHour="36">
     <walk from="EC" to="CN" />
   </personFlow>
 
-  <personFlow id="f_33" begin="0.00" end="1000.00" probability="0.01" departPos="random">
+  <personFlow id="f_33" begin="0" end="100000" vehsPerHour="36">
     <walk from="NC" to="CS" />
   </personFlow>
 
-  <personFlow id="f_34" begin="0.00" end="1000.00" probability="0.01" departPos="random">
+  <personFlow id="f_34" begin="0" end="100000" vehsPerHour="36">
     <walk from="NC" to="CE" />
   </personFlow>
 
-  <personFlow id="f_35" begin="0.00" end="1000.00" probability="0.01" departPos="random">
+  <personFlow id="f_35" begin="0" end="100000" vehsPerHour="36">
     <walk from="NC" to="CW" />
   </personFlow>
 </routes>

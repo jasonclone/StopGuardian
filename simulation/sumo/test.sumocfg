@@ -8,13 +8,16 @@
     <input>
         <net-file value="test.net.xml"/>
         <route-files value="test.rou.xml"/>
+        <additional-files value="test.add.xml"/>
     </input>
 
     <time>
         <begin value="0"/>
-        <end value="1000"/>
+        <end value="100000"/>
         <step-length value="0.1"/>
-        <random value="true"/>   <!-- randomize the seed-->
+
+
+        <random value="true"/>
 
     </time>
 

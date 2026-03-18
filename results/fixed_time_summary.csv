@@ -1,2 +1,2 @@
-avg_vehicle_waiting_time,avg_vehicle_queue_length,max_vehicle_queue_length,avg_ped_waiting_time,avg_ped_queue_length,max_ped_queue_length,throughput,cumulative_reward,simulation_steps
-41.68735095904604,44.5038,97,19.555191256830696,2.251,10,1929,-467548.0,10000
+avg_vehicle_queue,max_vehicle_queue,vehicle_throughput,ped_throughput,switch_count,cumulative_reward,runtime_seconds
+25.6655,39,788,48,225,-256655.0,74.13
