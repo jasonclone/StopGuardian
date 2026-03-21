@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on 2026-03-17T14:53:50.522603-08:00 by Eclipse SUMO netedit 1.26.0
+<!-- generated on 2026-03-20T20:18:15.959268-08:00 by Eclipse SUMO netedit 1.26.0
 <neteditConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/neteditConfiguration.xsd">
 
     <input>
@@ -32,21 +32,20 @@
 
 </neteditConfiguration>
 -->
-
 <additional xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/additional_file.xsd">
     <tlLogic id="C" type="static" programID="0" offset="0">
-        <phase duration="5"  state="rGrGGrrrrrrrrrrGrGGrrrrrrrrrrGrG"/>
-        <phase duration="5"  state="rGrGGrrrrrrrrrrGrGGrrrrrrrrrrrrr"/>
-        <phase duration="5"  state="GGgGGrrrrrrrrrGGgGGrrrrrrrrrrrrr"/>
+        <phase duration="30" state="rGrGGrrrrrrrrrrGrGGrrrrrrrrrrGrG"/>
+        <phase duration="30" state="rGrGGrrrrrrrrrrGrGGrrrrrrrrrrrrr"/>
+        <phase duration="30" state="GGgGGrrrrrrrrrGGgGGrrrrrrrrrrrrr"/>
         <phase duration="4"  state="GygyyrrrrrrrrrGygyyrrrrrrrrrrrrr"/>
-        <phase duration="5"  state="GrGrrrrGrrrrGGGrGrrrrGrrrrGGrrrr"/>
+        <phase duration="30" state="GrGrrrrGrrrrGGGrGrrrrGrrrrGGrrrr"/>
         <phase duration="4"  state="yryrrrryrrrryyyryrrrryrrrryyrrrr"/>
         <phase duration="3"  state="rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"/>
-        <phase duration="5"  state="rrrrrrrrGrGGrrrrrrrrrrGrGGrrGrGr"/>
-        <phase duration="5"  state="rrrrrrrrGrGGrrrrrrrrrrGrGGrrrrrr"/>
-        <phase duration="5"  state="rrrrrrrGGgGGrrrrrrrrrGGgGGrrrrrr"/>
+        <phase duration="30" state="rrrrrrrrGrGGrrrrrrrrrrGrGGrrGrGr"/>
+        <phase duration="30" state="rrrrrrrrGrGGrrrrrrrrrrGrGGrrrrrr"/>
+        <phase duration="30" state="rrrrrrrGGgGGrrrrrrrrrGGgGGrrrrrr"/>
         <phase duration="4"  state="rrrrrrrGygyyrrrrrrrrrGygyyrrrrrr"/>
-        <phase duration="5"  state="GrrrrGGGrGrrrrGrrrrGGGrGrrrrrrrr"/>
+        <phase duration="30" state="GrrrrGGGrGrrrrGrrrrGGGrGrrrrrrrr"/>
         <phase duration="4"  state="yrrrryyyryrrrryrrrryyyryrrrrrrrr"/>
         <phase duration="3"  state="rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"/>
     </tlLogic>
