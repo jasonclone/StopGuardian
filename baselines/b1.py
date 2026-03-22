@@ -33,15 +33,6 @@ SUMMARY_CSV = os.path.join(HOST_RESULTS_DIR, "fixed_time_summary.csv")
 
 EPISODE_CSV = os.path.join(HOST_RESULTS_DIR, "fixed_time_episode_metrics.csv")
 
-
-# EXACT SAME DETECTORS AS RL
-VEHICLE_DETECTORS = [
-    "C_NC_1", "C_NC_2", "C_NC_3", "C_NC_4",
-    "C_EC_1", "C_EC_2", "C_EC_3", "C_EC_4",
-    "C_SC_1", "C_SC_2", "C_SC_3", "C_SC_4",
-    "C_WC_1", "C_WC_2", "C_WC_3", "C_WC_4",
-]
-
 # ================================================================
 # Argument parsing (episodes + steps per episode)
 # ================================================================
@@ -69,32 +60,66 @@ BASELINE_STEPS_PER_EPISODE = args.steps_per_episode
 # Helper functions (aligned with rl.py naming)
 # ================================================================
 
-def get_vehicle_queue_length(detector_id: str) -> int:
-    """Vehicle queue length on a lanearea detector (vehicles only)."""
-    return traci.lanearea.getLastStepVehicleNumber(detector_id)
-
-
-def get_vehicle_wait_time(detector_id: str) -> float:
+def veh_queue_lengths():
     """
-    Fallback waiting-time approximation for SUMO versions
-    that do NOT support lanearea.getWaitingTime().
+    Returns queue length per approach:
+        queue_N, queue_E, queue_S, queue_W
+    Ignores lanes with index 0 and counts vehicles with speed < 0.1 m/s as queued.
     """
-    try:
-        return traci.lanearea.getWaitingTime(detector_id)
-    except Exception:
-        # Fallback: count halting vehicles (speed < 0.1)
-        return float(traci.lanearea.getLastStepHaltingNumber(detector_id))
+    queue_N = queue_E = queue_S = queue_W = 0
+
+    for vid in traci.vehicle.getIDList():
+        lane = traci.vehicle.getLaneID(vid)
+        speed = traci.vehicle.getSpeed(vid)
+
+        # Skip lanes with index 0
+        if lane.endswith("_0"):
+            continue
+
+        # Count as queued if speed is very low
+        if speed < 0.1:
+            if lane.startswith("NC"):
+                queue_N += 1
+            elif lane.startswith("EC"):
+                queue_E += 1
+            elif lane.startswith("SC"):
+                queue_S += 1
+            elif lane.startswith("WC"):
+                queue_W += 1
+
+    return queue_N, queue_E, queue_S, queue_W
 
 
-def get_vehicle_wait_time_for_prefix(det_prefix: str) -> float:
-    return sum(
-        get_vehicle_wait_time(f"{det_prefix}_{i}")
-        for i in range(1, 5)
-    )
+def veh_wait_times():
+    """
+    Returns waiting time per approach:
+        wait_N, wait_E, wait_S, wait_W
+    using traci.vehicle.getWaitingTime()
+    """
+    wait_N = wait_E = wait_S = wait_W = 0.0
+
+    for vid in traci.vehicle.getIDList():
+        lane = traci.vehicle.getLaneID(vid)
+        wt = traci.vehicle.getWaitingTime(vid)
+        
+        # Skip lanes with index 0 (pedestrian lanes), since they can have waiting time but we only want to count vehicle waiting time here
+        if lane.endswith("_0"):
+            continue
+        
+        if lane.startswith("NC"):
+            wait_N += wt
+        elif lane.startswith("EC"):
+            wait_E += wt
+        elif lane.startswith("SC"):
+            wait_S += wt
+        elif lane.startswith("WC"):
+            wait_W += wt
+
+    return wait_N, wait_E, wait_S, wait_W
+    
 
 
-
-def get_pedestrian_queue_count() -> int:
+def ped_queue_count() -> int:
     """Number of pedestrians currently waiting (waiting time > 1s)."""
     return sum(
         1 for pid in traci.person.getIDList()
@@ -102,7 +127,7 @@ def get_pedestrian_queue_count() -> int:
     )
 
 
-def get_pedestrian_total_wait_time() -> float:
+def ped_wait_time() -> float:
     """Total pedestrian waiting time over all pedestrians (seconds)."""
     return sum(traci.person.getWaitingTime(pid) for pid in traci.person.getIDList())
 
@@ -149,7 +174,6 @@ def run_baseline():
 
     for ep in range(BASELINE_EPISODES):
         traci.start(["sumo", "-c", SUMO_CFG, "--start", "--no-step-log"])
-
         cumulative_reward_episode = 0.0
 
         # Per-episode accumulators
@@ -180,7 +204,7 @@ def run_baseline():
             prev_pedestrian_ids = set(traci.person.getIDList())
 
             traci.simulationStep()
-
+            
             # IDs after step
             cur_vehicle_ids = set(traci.vehicle.getIDList())
             cur_pedestrian_ids = set(traci.person.getIDList())
@@ -194,24 +218,21 @@ def run_baseline():
 
             # Vehicle queue (sum over all detectors)
             vehicle_queue_total = sum(
-                get_vehicle_queue_length(det_id) for det_id in VEHICLE_DETECTORS
+                veh_queue_lengths()[i] for i in range(4)
             )
 
             # Pedestrian queue
-            pedestrian_queue = get_pedestrian_queue_count()
+            pedestrian_queue = ped_queue_count()
 
             # Vehicle waiting times per approach
-            vehicle_wait_N = get_vehicle_wait_time_for_prefix("C_NC")
-            vehicle_wait_E = get_vehicle_wait_time_for_prefix("C_EC")
-            vehicle_wait_S = get_vehicle_wait_time_for_prefix("C_SC")
-            vehicle_wait_W = get_vehicle_wait_time_for_prefix("C_WC")
+            vehicle_wait_N, vehicle_wait_E, vehicle_wait_S, vehicle_wait_W = veh_wait_times()
 
             total_vehicle_wait = (
                 vehicle_wait_N + vehicle_wait_E + vehicle_wait_S + vehicle_wait_W
             )
 
             # Pedestrian waiting time (aggregate)
-            pedestrian_wait_time = get_pedestrian_total_wait_time()
+            pedestrian_wait_time = ped_wait_time()
 
             # For RL-aligned naming
             vehicle_wait = total_vehicle_wait
@@ -297,6 +318,17 @@ def run_baseline():
                     "spawned_peds": ";".join(spawned_pedestrians),
                 }
             )
+            
+            # Progress logging (every 100 steps)
+            if step_in_episode % 100 == 0:
+                print(
+                    f"[Episode {ep+1}/{BASELINE_EPISODES}] "
+                    f"Step {step_in_episode}/{BASELINE_STEPS_PER_EPISODE} | "
+                    f"Global Step {global_step} | "
+                    f"Total Queue: {total_queue:.2f} | "
+                    f"Reward: {reward:.4f} | "
+                    f"CumReward: {cumulative_reward_episode:.2f}"
+                )
 
             global_step += 1
 

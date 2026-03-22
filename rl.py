@@ -59,13 +59,13 @@ parser.add_argument(
 parser.add_argument(
     "--episodes",
     type=int,
-    default=50,
+    default=10,
     help="Number of episodes to run",
 )
 parser.add_argument(
     "--steps_per_episode",
     type=int,
-    default=10000,
+    default=100,
     help="Number of environment steps per episode",
 )
 args = parser.parse_args()
@@ -138,7 +138,7 @@ GAMMA = 0.99
 N_STEPS = 5
 BUFFER_SIZE = 100000
 BATCH_SIZE = 128
-MIN_REPLAY_SIZE = 5000
+MIN_REPLAY_SIZE = 100
 TARGET_UPDATE_FREQ = 500
 WARMUP_STEPS = 5000
 
@@ -160,9 +160,9 @@ LEARNING_RATE = 1e-4
 
 # Min-Max style normalization ranges (approximate, project-based)
 MAX_VEH_QUEUE = 200.0        # max vehicles per approach (tunable)
-MAX_VEH_WAIT = 1000.0        # vehicle waiting time in seconds
-MAX_PED_QUEUE = 50.0               # pedestrians
-MAX_PED_WAIT = 1000.0        # pedestrian waiting time in seconds
+MAX_VEH_WAIT = 10000.0        # vehicle waiting time in seconds
+MAX_PED = 100.0               # pedestrians
+MAX_PED_WAIT = 10000.0        # pedestrian waiting time in seconds
 
 # Reward scaling & clipping
 REWARD_SCALE = 50.0          # scale down queue-based reward
@@ -184,20 +184,66 @@ NUM_PHASES = None
 # ================================================================
 
 
-def get_vehicle_queue_length(detector_id: str) -> int:
-    """Vehicle queue length on a lanearea detector (vehicles only)."""
-    return traci.lanearea.getLastStepVehicleNumber(detector_id)
+def veh_queue_lengths():
+    """
+    Returns queue length per approach:
+        queue_N, queue_E, queue_S, queue_W
+    Ignores lanes with index 0 and counts vehicles with speed < 0.1 m/s as queued.
+    """
+    queue_N = queue_E = queue_S = queue_W = 0
+
+    for vid in traci.vehicle.getIDList():
+        lane = traci.vehicle.getLaneID(vid)
+        speed = traci.vehicle.getSpeed(vid)
+
+        # Skip lanes with index 0
+        if lane.endswith("_0"):
+            continue
+
+        # Count as queued if speed is very low
+        if speed < 0.1:
+            if lane.startswith("NC"):
+                queue_N += 1
+            elif lane.startswith("EC"):
+                queue_E += 1
+            elif lane.startswith("SC"):
+                queue_S += 1
+            elif lane.startswith("WC"):
+                queue_W += 1
+
+    return queue_N, queue_E, queue_S, queue_W
+
+def veh_wait_times():
+    """
+    Returns waiting time per approach:
+        wait_N, wait_E, wait_S, wait_W
+    using traci.vehicle.getWaitingTime()
+    """
+    wait_N = wait_E = wait_S = wait_W = 0.0
+
+    for vid in traci.vehicle.getIDList():
+        lane = traci.vehicle.getLaneID(vid)
+        wt = traci.vehicle.getWaitingTime(vid)
+        
+        # Skip lanes with index 0 (pedestrian lanes), since they can have waiting time but we only want to count vehicle waiting time here
+        if lane.endswith("_0"):
+            continue
+        
+        if lane.startswith("NC"):
+            wait_N += wt
+        elif lane.startswith("EC"):
+            wait_E += wt
+        elif lane.startswith("SC"):
+            wait_S += wt
+        elif lane.startswith("WC"):
+            wait_W += wt
+
+    return wait_N, wait_E, wait_S, wait_W
+    
 
 
-def get_vehicle_wait_time(detector_id: str) -> float:
-    """Vehicle waiting time aggregated on a lanearea detector (seconds)."""
-    try:
-        return traci.lanearea.getWaitingTime(detector_id)
-    except Exception:
-        return -1.0  # if detector ID is invalid or not present
 
-
-def get_pedestrian_queue_count() -> int:
+def ped_queue_count() -> int:
     """Number of pedestrians currently waiting (waiting time > 1s)."""
     return sum(
         1 for pid in traci.person.getIDList()
@@ -205,7 +251,7 @@ def get_pedestrian_queue_count() -> int:
     )
 
 
-def get_pedestrian_total_wait_time() -> float:
+def ped_wait_time() -> float:
     """Total pedestrian waiting time over all pedestrians (seconds)."""
     return sum(traci.person.getWaitingTime(pid) for pid in traci.person.getIDList())
 
@@ -214,7 +260,7 @@ def get_current_phase(tls_id: str = "C") -> int:
     return traci.trafficlight.getPhase(tls_id)
 
 
-def get_num_phases(tls_id: str = "C") -> int:
+def num_phases(tls_id: str = "C") -> int:
     program = traci.trafficlight.getAllProgramLogics(tls_id)[0]
     return len(program.phases)
 
@@ -229,26 +275,20 @@ def one_hot_phase(phase_idx: int, num_phases: int) -> np.ndarray:
 def get_state():
     """
     State:
-      - qN, qE, qS, qW: vehicle queue lengths (sum over detectors)
-      - wN, wE, wS, wW: vehicle waiting times (sum over detectors)
+      - qN, qE, qS, qW: vehicle queue lengths 
+      - wN, wE, wS, wW: vehicle waiting times
       - ped_queue: total waiting pedestrians (count)
       - ped_wait: total pedestrian waiting time (seconds)
       - phase: current phase index (categorical, later one-hot)
     """
     # Vehicle queues (per approach)
-    q_N = sum(get_vehicle_queue_length(f"C_NC_{i}") for i in range(1, 5))
-    q_E = sum(get_vehicle_queue_length(f"C_EC_{i}") for i in range(1, 5))
-    q_S = sum(get_vehicle_queue_length(f"C_SC_{i}") for i in range(1, 5))
-    q_W = sum(get_vehicle_queue_length(f"C_WC_{i}") for i in range(1, 5))
+    q_N, q_E, q_S, q_W = veh_queue_lengths()
 
     # Vehicle waiting times per approach
-    w_N = sum(get_vehicle_wait_time(f"C_NC_{i}") for i in range(1, 5))
-    w_E = sum(get_vehicle_wait_time(f"C_EC_{i}") for i in range(1, 5))
-    w_S = sum(get_vehicle_wait_time(f"C_SC_{i}") for i in range(1, 5))
-    w_W = sum(get_vehicle_wait_time(f"C_WC_{i}") for i in range(1, 5))
+    w_N, w_E, w_S, w_W = veh_wait_times()
 
-    ped_queue = get_pedestrian_queue_count()
-    ped_wait = get_pedestrian_total_wait_time()
+    ped_queue = ped_queue_count()
+    ped_wait = ped_wait_time()
     phase = get_current_phase("C")
 
     return (
@@ -269,7 +309,7 @@ def normalize_state(s):
     Min-Max style normalization to [0, 1] for all numeric features:
       - vehicle queue lengths: 0–MAX_VEH_QUEUE
       - vehicle waiting times: 0–MAX_VEH_WAIT
-      - ped_queue: 0–MAX_PED_QUEUE
+      - ped_queue: 0–MAX_PED
       - ped_wait: 0–MAX_PED_WAIT
       - phase: one-hot encoded (no fake ordering)
     """
@@ -290,11 +330,12 @@ def normalize_state(s):
     wS_n = normalize_scalar(w_S, MAX_VEH_WAIT)
     wW_n = normalize_scalar(w_W, MAX_VEH_WAIT)
 
-    ped_queue_n = normalize_scalar(ped_queue, MAX_PED_QUEUE)
+    ped_queue_n = normalize_scalar(ped_queue, MAX_PED)
     ped_wait_n = normalize_scalar(ped_wait, MAX_PED_WAIT)
 
     if NUM_PHASES is None:
-        NUM_PHASES = 1
+        raise RuntimeError("NUM_PHASES not initialized before normalize_state()")
+
     phase_oh = one_hot_phase(int(phase), NUM_PHASES)
 
     return np.concatenate(
@@ -311,9 +352,6 @@ def normalize_state(s):
         ],
         axis=0,
     )
-
-
-PED_WEIGHT = 3.0   # or 2.0–4.0 as a reasonable band
 
 
 def get_reward(state, prev_state=None):
@@ -623,7 +661,7 @@ def init_models_and_replay():
 
     traci.start(make_sumo_config())
     dummy_state = get_state()
-    NUM_PHASES = get_num_phases("C")
+    NUM_PHASES = num_phases("C")
     traci.close()
 
     dummy_norm = normalize_state(dummy_state)
@@ -923,7 +961,6 @@ def run():
             switch_count = 0
             prev_phase = get_current_phase("C")
 
-            prev_state = None
             episode_ok = False
 
             try:
@@ -935,7 +972,6 @@ def run():
                     prev_ped_ids = set(traci.person.getIDList())
 
                     state = get_state()
-                    
                     action = select_action(state, step_idx, ep_mode, online_model)
                     apply_action_safe(action, "C")
 
@@ -947,6 +983,7 @@ def run():
 
                     # Advance simulation
                     traci.simulationStep()
+                    
 
                     next_state = get_state()
                     reward = get_reward(next_state, state)
@@ -977,10 +1014,12 @@ def run():
                     cur_ped_ids = set(traci.person.getIDList())
                     vehicle_throughput += len(prev_vehicle_ids - cur_vehicle_ids)
                     ped_throughput += len(prev_ped_ids - cur_ped_ids)
+                    
+                    done = (t == STEPS_PER_EPISODE - 1) # episode ends after fixed number of steps, not on sim end
 
                     # Store transition and train online (only in train episodes)
                     if ep_mode == "train":
-                        replay_buffer.add(state, action, reward, next_state, False)
+                        replay_buffer.add(state, action, reward, next_state, done)
 
                         loss = train_step(beta, online_model, target_model, replay_buffer, optimizer)
                         if loss is not None:
