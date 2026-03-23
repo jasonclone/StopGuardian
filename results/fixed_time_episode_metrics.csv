@@ -1,2 +1,0 @@
-episode,cumulative_reward,avg_vehicle_queue,avg_ped_queue,avg_total_queue,avg_vehicle_wait,avg_ped_wait,avg_total_wait,vehicle_throughput,ped_throughput,switch_count
-0,-9174.494999999995,68.5159,4.517,73.0329,3886.6169399999717,321.72829000000564,4208.345229999977,821,42,51

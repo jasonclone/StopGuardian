@@ -53,19 +53,19 @@ parser.add_argument(
 parser.add_argument(
     "--run_id",
     type=str,
-    default="default",
+    default="rl",
     help="Run identifier for checkpoints/logs",
 )
 parser.add_argument(
     "--episodes",
     type=int,
-    default=10,
+    default=1,
     help="Number of episodes to run",
 )
 parser.add_argument(
     "--steps_per_episode",
     type=int,
-    default=100,
+    default=10000,
     help="Number of environment steps per episode",
 )
 args = parser.parse_args()
@@ -85,8 +85,8 @@ EVAL_EPISODES = NUM_EPISODES - TRAIN_EPISODES
 # Directories
 # ================================================================
 
-BASE_RESULTS_DIR = "results"
-RUN_DIR = os.path.join(BASE_RESULTS_DIR, RUN_ID)
+RESULTS_DIR = "results"
+RUN_DIR = os.path.join(RESULTS_DIR, RUN_ID)
 os.makedirs(RUN_DIR, exist_ok=True)
 
 CHECKPOINT_DIR = os.path.join(RUN_DIR, "checkpoints")
@@ -97,7 +97,7 @@ os.makedirs(REPLAY_DIR, exist_ok=True)
 
 RL_STEP_CSV = os.path.join(RUN_DIR, "rl_step_metrics.csv")
 RL_EPISODE_CSV = os.path.join(RUN_DIR, "rl_episode_metrics.csv")
-PLOT_PATH = os.path.join(RUN_DIR, "rl_combined.png")
+PLOT_PATH = os.path.join(RUN_DIR, "rl_plot_reward.png")
 
 BEST_MODEL_PATH = os.path.join(CHECKPOINT_DIR, "best_model.pth")
 LAST_MODEL_PATH = os.path.join(CHECKPOINT_DIR, "last_model.pth")
@@ -138,8 +138,8 @@ GAMMA = 0.99
 N_STEPS = 5
 BUFFER_SIZE = 100000
 BATCH_SIZE = 128
-MIN_REPLAY_SIZE = 100
-TARGET_UPDATE_FREQ = 500
+MIN_REPLAY_SIZE = 5000
+TARGET_UPDATE_FREQ = 1000
 WARMUP_STEPS = 5000
 
 # NoisyNet handles exploration; epsilon off by default
@@ -162,10 +162,10 @@ LEARNING_RATE = 1e-4
 MAX_VEH_QUEUE = 200.0        # max vehicles per approach (tunable)
 MAX_VEH_WAIT = 10000.0        # vehicle waiting time in seconds
 MAX_PED = 100.0               # pedestrians
-MAX_PED_WAIT = 10000.0        # pedestrian waiting time in seconds
+MAX_PED_WAIT = 100.0        # pedestrian waiting time in seconds
 
 # Reward scaling & clipping
-REWARD_SCALE = 50.0          # scale down queue-based reward
+REWARD_SCALE = 150.0          # scale down queue-based reward
 REWARD_CLIP = 1.0            # clip reward to [-1, 1]
 
 CHECKPOINT_EVERY_EPISODES = 1
@@ -184,80 +184,6 @@ NUM_PHASES = None
 # ================================================================
 
 
-def veh_queue_lengths():
-    """
-    Returns queue length per approach:
-        queue_N, queue_E, queue_S, queue_W
-    Ignores lanes with index 0 and counts vehicles with speed < 0.1 m/s as queued.
-    """
-    queue_N = queue_E = queue_S = queue_W = 0
-
-    for vid in traci.vehicle.getIDList():
-        lane = traci.vehicle.getLaneID(vid)
-        speed = traci.vehicle.getSpeed(vid)
-
-        # Skip lanes with index 0
-        if lane.endswith("_0"):
-            continue
-
-        # Count as queued if speed is very low
-        if speed < 0.1:
-            if lane.startswith("NC"):
-                queue_N += 1
-            elif lane.startswith("EC"):
-                queue_E += 1
-            elif lane.startswith("SC"):
-                queue_S += 1
-            elif lane.startswith("WC"):
-                queue_W += 1
-
-    return queue_N, queue_E, queue_S, queue_W
-
-def veh_wait_times():
-    """
-    Returns waiting time per approach:
-        wait_N, wait_E, wait_S, wait_W
-    using traci.vehicle.getWaitingTime()
-    """
-    wait_N = wait_E = wait_S = wait_W = 0.0
-
-    for vid in traci.vehicle.getIDList():
-        lane = traci.vehicle.getLaneID(vid)
-        wt = traci.vehicle.getWaitingTime(vid)
-        
-        # Skip lanes with index 0 (pedestrian lanes), since they can have waiting time but we only want to count vehicle waiting time here
-        if lane.endswith("_0"):
-            continue
-        
-        if lane.startswith("NC"):
-            wait_N += wt
-        elif lane.startswith("EC"):
-            wait_E += wt
-        elif lane.startswith("SC"):
-            wait_S += wt
-        elif lane.startswith("WC"):
-            wait_W += wt
-
-    return wait_N, wait_E, wait_S, wait_W
-    
-
-
-
-def ped_queue_count() -> int:
-    """Number of pedestrians currently waiting (waiting time > 1s)."""
-    return sum(
-        1 for pid in traci.person.getIDList()
-        if traci.person.getWaitingTime(pid) > 1.0
-    )
-
-
-def ped_wait_time() -> float:
-    """Total pedestrian waiting time over all pedestrians (seconds)."""
-    return sum(traci.person.getWaitingTime(pid) for pid in traci.person.getIDList())
-
-
-def get_current_phase(tls_id: str = "C") -> int:
-    return traci.trafficlight.getPhase(tls_id)
 
 
 def num_phases(tls_id: str = "C") -> int:
@@ -270,32 +196,6 @@ def one_hot_phase(phase_idx: int, num_phases: int) -> np.ndarray:
     if 0 <= phase_idx < num_phases:
         vec[phase_idx] = 1.0
     return vec
-
-
-def get_state():
-    """
-    State:
-      - qN, qE, qS, qW: vehicle queue lengths 
-      - wN, wE, wS, wW: vehicle waiting times
-      - ped_queue: total waiting pedestrians (count)
-      - ped_wait: total pedestrian waiting time (seconds)
-      - phase: current phase index (categorical, later one-hot)
-    """
-    # Vehicle queues (per approach)
-    q_N, q_E, q_S, q_W = veh_queue_lengths()
-
-    # Vehicle waiting times per approach
-    w_N, w_E, w_S, w_W = veh_wait_times()
-
-    ped_queue = ped_queue_count()
-    ped_wait = ped_wait_time()
-    phase = get_current_phase("C")
-
-    return (
-        q_N, q_E, q_S, q_W,
-        w_N, w_E, w_S, w_W,
-        ped_queue, ped_wait, phase,
-    )
 
 
 def normalize_scalar(x: float, max_val: float) -> float:
@@ -353,33 +253,6 @@ def normalize_state(s):
         axis=0,
     )
 
-
-def get_reward(state, prev_state=None):
-    """
-    Reward:
-      - Based on total queue (vehicles + pedestrians)
-      - Scaled and clipped for stability
-      - Includes shaping term for reduction in total queue
-      - NOTE: reward uses ped_queue, not ped_wait, to stay aligned with baseline
-    """
-    qN, qE, qS, qW, wN, wE, wS, wW, ped_queue, ped_wait, phase = state
-    vehicle_queue = qN + qE + qS + qW
-    total_queue = vehicle_queue + ped_queue
-
-    reward = -float(total_queue) / REWARD_SCALE
-
-    if prev_state is not None:
-        (
-            pqN, pqE, pqS, pqW,
-            p_wN, p_wE, p_wS, p_wW,
-            p_ped_queue, p_ped_wait, p_phase,
-        ) = prev_state
-        prev_vehicle_queue = pqN + pqE + pqS + pqW
-        prev_total_queue = prev_vehicle_queue + p_ped_queue
-        reward += 0.25 * ((prev_total_queue - total_queue) / REWARD_SCALE)
-
-    reward = float(np.clip(reward, -REWARD_CLIP, REWARD_CLIP))
-    return reward
 
 
 def apply_action_safe(action, tls_id: str = "C"):
@@ -573,7 +446,9 @@ class PrioritizedReplayBuffer:
         else:
             self.buffer[self.pos] = (s0, a0, R, sN, dN)
 
-        max_prio = self.priorities.max() if self.buffer else 1.0
+        max_prio = self.priorities.max() if len(self.buffer) > 0 else 1.0
+        if max_prio == 0:
+            max_prio = 1.0
         self.priorities[self.pos] = max_prio
         self.pos = (self.pos + 1) % self.capacity
         self.n_step_buffer.pop(0)
@@ -592,7 +467,9 @@ class PrioritizedReplayBuffer:
             else:
                 self.buffer[self.pos] = (s0, a0, R, sN, dN)
 
-            max_prio = self.priorities.max() if self.buffer else 1.0
+            max_prio = self.priorities.max() if len(self.buffer) > 0 else 1.0
+            if max_prio == 0:
+                max_prio = 1.0
             self.priorities[self.pos] = max_prio
             self.pos = (self.pos + 1) % self.capacity
             self.n_step_buffer.pop(0)
@@ -601,7 +478,7 @@ class PrioritizedReplayBuffer:
         if len(self.buffer) == self.capacity:
             prios = self.priorities
         else:
-            prios = self.priorities[: self.pos]
+            prios = self.priorities[: len(self.buffer)]
 
         prio_sum = prios.sum()
         if prio_sum <= 0 or np.isnan(prio_sum):
@@ -660,6 +537,8 @@ def init_models_and_replay():
     global NUM_PHASES
 
     traci.start(make_sumo_config())
+    
+    traci.simulationStep()
     dummy_state = get_state()
     NUM_PHASES = num_phases("C")
     traci.close()
@@ -684,12 +563,6 @@ def init_models_and_replay():
         print(f"Loaded replay buffer from {REPLAY_PATH}")
 
     return online_model, target_model, replay_buffer, online_optimizer
-
-
-best_metric = None
-if os.path.exists(BEST_MODEL_PATH):
-    print(f"Best model already exists at {BEST_MODEL_PATH}")
-
 
 # ================================================================
 # Action Selection
@@ -808,7 +681,7 @@ def train_step(beta, online_model, target_model, replay_buffer, optimizer):
         target_logits = target_logits.gather(
             1, next_actions.view(-1, 1, 1).expand(-1, 1, NUM_ATOMS)
         ).squeeze(1)  # (batch, num_atoms)
-        target_probs = torch.softmax(target_logits, dim=-1)  # (batch, num_atoms)
+        target_probs = torch.softmax(target_logits, dim=-1).detach()
 
         support = target_model.support  # (num_atoms,)
         proj_dist = projection_distribution(
@@ -835,7 +708,12 @@ def train_step(beta, online_model, target_model, replay_buffer, optimizer):
 
     optimizer.zero_grad()
     loss.backward()
+
+    # --- Gradient clipping (correct placement) ---
+    torch.nn.utils.clip_grad_norm_(online_model.parameters(), 10.0)
+
     optimizer.step()
+
 
     # TD-errors for PER (based on expected values)
     with torch.no_grad():
@@ -847,60 +725,6 @@ def train_step(beta, online_model, target_model, replay_buffer, optimizer):
     return float(loss.item())
 
 
-# ================================================================
-# Helpers
-# ================================================================
-
-
-def moving_avg(data, window=50):
-    if len(data) < window:
-        return float(np.mean(data)) if data else 0.0
-    return float(np.mean(data[-window:]))
-
-
-def save_step_csv(step_rows):
-    if not step_rows:
-        return
-    with open(RL_STEP_CSV, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=step_rows[0].keys())
-        writer.writeheader()
-        writer.writerows(step_rows)
-
-
-def save_episode_csv(episode_rows):
-    if not episode_rows:
-        return
-    with open(RL_EPISODE_CSV, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=episode_rows[0].keys())
-        writer.writeheader()
-        writer.writerows(episode_rows)
-
-
-def plot_metrics(episode_rows):
-    if not episode_rows:
-        return
-
-    eps = [r["episode"] for r in episode_rows]
-    cum_rewards = [r["cumulative_reward"] for r in episode_rows]
-    avg_total = [r["avg_total_queue"] for r in episode_rows]
-
-    plt.figure(figsize=(10, 6))
-    plt.subplot(2, 1, 1)
-    plt.plot(eps, cum_rewards, marker="o")
-    plt.xlabel("Episode")
-    plt.ylabel("Cumulative Reward")
-    plt.title(f"Episode Metrics ({MODE.upper()} - {RUN_ID})")
-    plt.grid(True)
-
-    plt.subplot(2, 1, 2)
-    plt.plot(eps, avg_total, marker="o", color="orange")
-    plt.xlabel("Episode")
-    plt.ylabel("Avg Total Queue (veh + ped)")
-    plt.grid(True)
-
-    plt.tight_layout()
-    plt.savefig(PLOT_PATH)
-    plt.close()
 
 
 # ================================================================
@@ -908,19 +732,22 @@ def plot_metrics(episode_rows):
 # ================================================================
 
 
+best_metric = None
+if os.path.exists(BEST_MODEL_PATH):
+    print(f"Best model already exists at {BEST_MODEL_PATH}")
+
+
 def run():
     global best_metric
 
     online_model, target_model, replay_buffer, optimizer = init_models_and_replay()
 
-    # For CSV logging
     step_rows: List[Dict[str, Any]] = []
     episode_rows: List[Dict[str, Any]] = []
 
     total_steps_global = 0
     total_grad_steps_global = 0
 
-    # Schedule beta over approximate total gradient steps
     total_planned_updates = max(NUM_EPISODES * STEPS_PER_EPISODE, 1)
     beta = PRIORITY_BETA_START
     beta_increment = (PRIORITY_BETA_END - PRIORITY_BETA_START) / total_planned_updates
@@ -934,28 +761,29 @@ def run():
 
     try:
         for ep in range(NUM_EPISODES):
-            # Determine per-episode mode based on 80/20 split
+
+            # 80/20 split
             if MODE == "train":
-                if ep < TRAIN_EPISODES:
-                    ep_mode = "train"
-                else:
-                    ep_mode = "eval"
+                ep_mode = "train" if ep < TRAIN_EPISODES else "eval"
             else:
-                ep_mode = MODE  # "eval" or "infer" from CLI
+                ep_mode = MODE
 
             traci.start(make_sumo_config())
 
+            # Reset trackers
+            get_ped_state.prev_ped_ids = set()
+            get_vehicle_state.prev_veh_ids = set()
+
             cumulative_reward = 0.0
 
-            vehicle_queue_hist: List[float] = []
-            ped_queue_hist: List[float] = []
-            total_queue_hist: List[float] = []
+            vehicle_queue_hist = []
+            ped_queue_hist = []
+            total_queue_hist = []
 
-            vehicle_wait_hist: List[float] = []
-            ped_wait_hist: List[float] = []
-            total_wait_hist: List[float] = []
+            vehicle_wait_hist = []
+            ped_wait_hist = []
+            total_wait_hist = []
 
-            # Throughput + switching
             vehicle_throughput = 0
             ped_throughput = 0
             switch_count = 0
@@ -965,42 +793,60 @@ def run():
 
             try:
                 for t in range(STEPS_PER_EPISODE):
-                    step_idx = total_steps_global
 
-                    # IDs before step for throughput
-                    prev_vehicle_ids = set(traci.vehicle.getIDList())
-                    prev_ped_ids = set(traci.person.getIDList())
-
+                    # ===== STATE BEFORE ACTION =====
                     state = get_state()
-                    action = select_action(state, step_idx, ep_mode, online_model)
+
+                    action = select_action(state, t, ep_mode, online_model)
                     apply_action_safe(action, "C")
 
-                    # Count phase switches
+                    # Phase switching
                     cur_phase = get_current_phase("C")
                     if cur_phase != prev_phase:
                         switch_count += 1
                         prev_phase = cur_phase
 
-                    # Advance simulation
+                    # ===== STEP SIMULATION =====
                     traci.simulationStep()
-                    
 
-                    next_state = get_state()
-                    reward = get_reward(next_state, state)
-                    cumulative_reward += reward
+                    #  collect data for next state
+                    veh_data = get_vehicle_state()
+                    ped_data = get_ped_state()
 
-                    # Queues and waits from next_state
                     (
                         qN, qE, qS, qW,
                         wN, wE, wS, wW,
-                        ped_queue, ped_wait, phase,
-                    ) = next_state
+                        veh_thru_step
+                    ) = veh_data
+
+                    ped_queue, ped_wait, ped_thru_step = ped_data
+
+                    # get updated tls phase
+                    phase = get_current_phase("C")
+
+                    # initialize next state
+                    next_state = (
+                        qN, qE, qS, qW,
+                        wN, wE, wS, wW,
+                        ped_queue, ped_wait,
+                        phase
+                    )
+
+                    vehicle_throughput += veh_thru_step
+                    ped_throughput += ped_thru_step
+
 
                     vehicle_queue = qN + qE + qS + qW
                     total_queue = vehicle_queue + ped_queue
+
                     vehicle_wait = wN + wE + wS + wW
                     total_wait = vehicle_wait + ped_wait
 
+                    # ===== REWARD =====
+                    reward = get_reward(next_state, state)
+                    cumulative_reward += reward
+
+                    # ===== LOGGING =====
                     vehicle_queue_hist.append(vehicle_queue)
                     ped_queue_hist.append(ped_queue)
                     total_queue_hist.append(total_queue)
@@ -1009,42 +855,43 @@ def run():
                     ped_wait_hist.append(ped_wait)
                     total_wait_hist.append(total_wait)
 
-                    # Throughput: who left between steps
-                    cur_vehicle_ids = set(traci.vehicle.getIDList())
-                    cur_ped_ids = set(traci.person.getIDList())
-                    vehicle_throughput += len(prev_vehicle_ids - cur_vehicle_ids)
-                    ped_throughput += len(prev_ped_ids - cur_ped_ids)
-                    
-                    done = (t == STEPS_PER_EPISODE - 1) # episode ends after fixed number of steps, not on sim end
+                    done = (t == STEPS_PER_EPISODE - 1)
 
-                    # Store transition and train online (only in train episodes)
+                    step_rows.append({
+                        "global_step": total_steps_global,
+                        "episode": ep,
+                        "mode": ep_mode,
+                        "step_in_episode": t,
+                        "queue_N": qN,
+                        "queue_E": qE,
+                        "queue_S": qS,
+                        "queue_W": qW,
+                        "wait_N": wN,
+                        "wait_E": wE,
+                        "wait_S": wS,
+                        "wait_W": wW,
+                        "ped_queue": ped_queue,
+                        "ped_wait": ped_wait,
+                        "phase": phase,
+                        "reward": reward,
+                        "loss": None, # added by training part below
+                        "action": None # added by training part below
+                    })
+
+                    # ===== TRAINING =====
                     if ep_mode == "train":
                         replay_buffer.add(state, action, reward, next_state, done)
 
                         loss = train_step(beta, online_model, target_model, replay_buffer, optimizer)
+
                         if loss is not None:
                             total_grad_steps_global += 1
                             beta = min(1.0, beta + beta_increment)
 
-                            step_rows.append(
-                                {
-                                    "global_step": total_steps_global,
-                                    "episode": ep,
-                                    "t": t,
-                                    "mode": ep_mode,
-                                    "loss": loss,
-                                    "vehicle_queue": vehicle_queue,
-                                    "ped_queue": ped_queue,
-                                    "total_queue": total_queue,
-                                    "vehicle_wait": vehicle_wait,
-                                    "ped_wait": ped_wait,
-                                    "total_wait": total_wait,
-                                    "reward": reward,
-                                    "action": action,
-                                }
-                            )
+                            step_rows[-1]["loss"] = loss
+                            step_rows[-1]["action"] = action
 
-                            # Target network update
+
                             if total_grad_steps_global % TARGET_UPDATE_FREQ == 0:
                                 target_model.load_state_dict(online_model.state_dict())
 
@@ -1053,47 +900,42 @@ def run():
                 episode_ok = True
 
             except Exception as e:
-                print(f"[Episode {ep}] Exception during simulation: {e}")
+                print(f"[Episode {ep}] Exception: {e}")
+
             finally:
                 try:
                     traci.close()
-                except Exception:
+                except:
                     pass
 
-            # Flush remaining n-step buffer at episode end
-            replay_buffer.flush()
+            # Flush n-step buffer
+            if ep_mode == "train":
+                replay_buffer.flush()
 
-            # Episode-level metrics
-            avg_vehicle_queue = float(np.mean(vehicle_queue_hist)) if vehicle_queue_hist else 0.0
-            avg_ped_queue = float(np.mean(ped_queue_hist)) if ped_queue_hist else 0.0
-            avg_total_queue = float(np.mean(total_queue_hist)) if total_queue_hist else 0.0
+            # ===== EPISODE METRICS =====
+            avg_vehicle_queue = float(np.mean(vehicle_queue_hist)) if vehicle_queue_hist else -1.0
+            avg_ped_queue = float(np.mean(ped_queue_hist)) if ped_queue_hist else -1.0
+            avg_total_queue = float(np.mean(total_queue_hist)) if total_queue_hist else -1.0
 
-            avg_vehicle_wait = float(np.mean(vehicle_wait_hist)) if vehicle_wait_hist else 0.0
-            avg_ped_wait = float(np.mean(ped_wait_hist)) if ped_wait_hist else 0.0
-            avg_total_wait = float(np.mean(total_wait_hist)) if total_wait_hist else 0.0
+            avg_vehicle_wait = float(np.mean(vehicle_wait_hist)) if vehicle_wait_hist else -1.0
+            avg_ped_wait = float(np.mean(ped_wait_hist)) if ped_wait_hist else -1.0
+            avg_total_wait = float(np.mean(total_wait_hist)) if total_wait_hist else -1.0
 
-            # Episode-level metrics
-            avg_vehicle_queue = float(np.mean(vehicle_queue_hist)) if vehicle_queue_hist else 0.0
-            avg_ped_queue = float(np.mean(ped_queue_hist)) if ped_queue_hist else 0.0
-            avg_total_queue = float(np.mean(total_queue_hist)) if total_queue_hist else 0.0
-
-            episode_rows.append(
-                {
-                    "episode": ep,
-                    "mode": ep_mode,
-                    "cumulative_reward": cumulative_reward,
-                    "avg_vehicle_queue": avg_vehicle_queue,
-                    "avg_ped_queue": avg_ped_queue,
-                    "avg_total_queue": avg_total_queue,
-                    "avg_vehicle_wait": avg_vehicle_wait,
-                    "avg_ped_wait": avg_ped_wait,
-                    "avg_total_wait": avg_total_wait,
-                    "vehicle_throughput": vehicle_throughput,
-                    "ped_throughput": ped_throughput,
-                    "switch_count": switch_count,
-                    "episode_ok": int(episode_ok),
-                }
-            )
+            episode_rows.append({
+                "episode": ep,
+                "mode": ep_mode,
+                "cumulative_reward": cumulative_reward,
+                "avg_vehicle_queue": avg_vehicle_queue,
+                "avg_ped_queue": avg_ped_queue,
+                "avg_total_queue": avg_total_queue,
+                "avg_vehicle_wait": avg_vehicle_wait,
+                "avg_ped_wait": avg_ped_wait,
+                "avg_total_wait": avg_total_wait,
+                "vehicle_throughput": vehicle_throughput,
+                "ped_throughput": ped_throughput,
+                "switch_count": switch_count,
+                "episode_ok": int(episode_ok),
+            })
 
             print(
                 f"[Ep {ep:04d} | {ep_mode}] "
@@ -1103,15 +945,13 @@ def run():
                 f"veh_thru={vehicle_throughput} | ped_thru={ped_throughput} | "
                 f"switches={switch_count}"
             )
-            
-            # ============================================================
-            # SAVE RESULTS AFTER EACH EPISODE (CSV + PLOT)
-            # ============================================================
+
+            # Save outputs
             save_step_csv(step_rows)
             save_episode_csv(episode_rows)
             plot_metrics(episode_rows)
 
-            # Checkpointing (based on avg_total_queue: lower is better)
+            # ===== CHECKPOINT =====
             if ep_mode == "train" and episode_ok:
                 metric = avg_total_queue
                 if best_metric is None or metric < best_metric:
@@ -1123,16 +963,14 @@ def run():
                     torch.save(online_model.state_dict(), LAST_MODEL_PATH)
                     replay_buffer.save(REPLAY_PATH)
 
-        # Final save
         torch.save(online_model.state_dict(), LAST_MODEL_PATH)
         replay_buffer.save(REPLAY_PATH)
 
     finally:
         try:
             traci.close()
-        except Exception:
+        except:
             pass
-
 
 if __name__ == "__main__":
     run()
