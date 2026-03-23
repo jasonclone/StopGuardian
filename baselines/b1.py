@@ -113,56 +113,76 @@ def run():
             
             try:
                 for step in range(STEPS_PER_EPISODE):
-                    
-                    state = env.get_state()
-            
-                    # Phase switching
+
+                    # =========================
+                    # 1. READ CURRENT STATE
+                    # =========================
+                    veh_data = env.get_vehicle_state()
+                    ped_data = env.get_ped_state()
+
+                    (
+                        qN, qE, qS, qW,
+                        wN, wE, wS, wW,
+                        veh_thru_step,
+                    ) = veh_data
+
+                    ped_queue, ped_wait, ped_thru_step = ped_data
+                    phase = env.get_phase()
+
+                    state = (qN, qE, qS, qW, ped_queue, phase)
+
+
+                    # =========================
+                    # PHASE TRACKING
+                    # =========================
                     cur_phase = env.get_phase()
                     if cur_phase != prev_phase:
                         switch_count += 1
                         prev_phase = cur_phase
-                        
-                    # ===== STEP SIMULATION =====
+
+                    # =========================
+                    # STEP SIMULATION
+                    # =========================
                     traci.simulationStep()
 
-                    #  collect data for next state
+                    # =========================
+                    # NEXT STATE (AFTER STEP)
+                    # =========================
                     veh_data = env.get_vehicle_state()
                     ped_data = env.get_ped_state()
-                        
+
                     (
                         qN, qE, qS, qW,
                         wN, wE, wS, wW,
-                        veh_thru_step
+                        veh_thru_step,
                     ) = veh_data
-                    
-                    ped_queue, ped_wait, ped_thru_step = ped_data
-                    
-                    # get updated tls phase
-                    phase = env.get_phase()
-                    
-                    # initialize next state
-                    next_state = (
-                        qN, qE, qS, qW,
-                        wN, wE, wS, wW,
-                        ped_queue, ped_wait,
-                        phase
-                    )
 
+                    ped_queue, ped_wait, ped_thru_step = ped_data
+                    phase = env.get_phase()
+
+                    next_state = (qN, qE, qS, qW, ped_queue, phase)
+
+                    # =========================
+                    # 6. METRICS
+                    # =========================
                     vehicle_throughput += veh_thru_step
                     ped_throughput += ped_thru_step
-                    
+
                     vehicle_queue = qN + qE + qS + qW
                     total_queue = vehicle_queue + ped_queue
 
                     vehicle_wait = wN + wE + wS + wW
                     total_wait = vehicle_wait + ped_wait
-                    
-                    # ===== REWARD =====
+
+                    # =========================
+                    # 7. REWARD
+                    # =========================
                     reward = env.get_reward(next_state, state)
                     cumulative_reward += reward
-                    
-                    
-                    # ===== LOGGING =====
+
+                    # =========================
+                    # 8. LOGGING
+                    # =========================
                     vehicle_queue_hist.append(vehicle_queue)
                     ped_queue_hist.append(ped_queue)
                     total_queue_hist.append(total_queue)
@@ -170,8 +190,6 @@ def run():
                     vehicle_wait_hist.append(vehicle_wait)
                     ped_wait_hist.append(ped_wait)
                     total_wait_hist.append(total_wait)
-
-                    done = (step == STEPS_PER_EPISODE - 1)
 
                     step_rows.append({
                         "total_steps_global": total_steps_global,
@@ -188,7 +206,7 @@ def run():
                         "ped_queue": ped_queue,
                         "ped_wait": ped_wait,
                         "phase": phase,
-                        "reward": reward
+                        "reward": reward,
                     })
 
 
