@@ -14,231 +14,192 @@ RESULTS_DIR = "results"
 EDA_DIR = os.path.join(RESULTS_DIR, "eda")
 os.makedirs(EDA_DIR, exist_ok=True)
 
-RUN_ID = "b1"  # baseline run ID
-BASELINE_CSV = os.path.join(RESULTS_DIR, RUN_ID, "b1_step_metrics.csv")
-
-RL_RUN_ID = "rl"
-RL_CSV = os.path.join(RESULTS_DIR, RL_RUN_ID, "rl_step_metrics.csv")
-
-BASELINE_LABEL = f"Baseline ({RUN_ID})"
-RL_LABEL = f"RL ({RL_RUN_ID})"
-
-# ============================================================
-# Load Data
-# ============================================================
-
-print("Loading baseline data...")
-df = pd.read_csv(BASELINE_CSV)
-
-df_rl = None
-if os.path.exists(RL_CSV):
-    print("Loading RL data...")
-    df_rl = pd.read_csv(RL_CSV)
-
-# ============================================================
-# Feature Lists
-# ============================================================
+RUNS = {
+    "b1": "b1_step_metrics.csv",
+    "rl": "rl_step_metrics.csv",
+}
 
 NUM_FEATURES = [
     "queue_N", "queue_E", "queue_S", "queue_W",
     "ped_queue",
 ]
 
-CAT_FEATURES = ["phase"]  # categorical feature
+CAT_FEATURES = ["phase"]
+
 
 # ============================================================
-# 2.2.1 Distribution Plots (Numerical + Categorical)
+# EDA Function (runs for baseline AND RL)
 # ============================================================
 
-print("Generating distribution plots...")
+def run_eda(run_id, csv_path):
+    label = f"{run_id.upper()}"
 
-# Numerical features
-for feature in NUM_FEATURES:
-    # Histogram
+    print(f"\n=== Running EDA for {label} ===")
+
+    if not os.path.exists(csv_path):
+        print(f"Skipping {label}: file not found → {csv_path}")
+        return
+
+    df = pd.read_csv(csv_path)
+
+    # ------------------------------
+    # Detect correct step column
+    # ------------------------------
+    if "global_step" in df.columns:
+        step_col = "global_step"
+    elif "total_steps_global" in df.columns:
+        step_col = "total_steps_global"
+    elif "Step" in df.columns:
+        step_col = "Step"
+    else:
+        raise KeyError(f"{label}: No valid step column found in CSV.")
+
+    # ------------------------------
+    # Count steps
+    # ------------------------------
+    num_steps = len(df)
+    print(f"{label}: Total steps logged = {num_steps}")
+
+    # Save step count to text file
+    with open(os.path.join(EDA_DIR, f"{run_id}_step_count.txt"), "w") as f:
+        f.write(f"{label} total steps: {num_steps}\n")
+
+    # ------------------------------
+    # 1. Distribution Plots
+    # ------------------------------
+    print(f"{label}: Distribution plots...")
+
+    for feature in NUM_FEATURES:
+        # Histogram
+        plt.figure(figsize=(8, 5))
+        sns.histplot(df[feature], kde=True)
+        plt.title(f"{label} — Histogram of {feature} (steps={num_steps})")
+        plt.savefig(os.path.join(EDA_DIR, f"{run_id}_hist_{feature}.png"))
+        plt.close()
+
+        # Boxplot
+        plt.figure(figsize=(8, 5))
+        sns.boxplot(x=df[feature])
+        plt.title(f"{label} — Boxplot of {feature} (steps={num_steps})")
+        plt.savefig(os.path.join(EDA_DIR, f"{run_id}_box_{feature}.png"))
+        plt.close()
+
+        # Violin
+        plt.figure(figsize=(8, 5))
+        sns.violinplot(x=df[feature])
+        plt.title(f"{label} — Violin Plot of {feature} (steps={num_steps})")
+        plt.savefig(os.path.join(EDA_DIR, f"{run_id}_violin_{feature}.png"))
+        plt.close()
+
+    # Categorical
+    for feature in CAT_FEATURES:
+        plt.figure(figsize=(10, 5))
+        sns.countplot(x=df[feature])
+        plt.title(f"{label} — Count Plot of {feature} (steps={num_steps})")
+        plt.savefig(os.path.join(EDA_DIR, f"{run_id}_count_{feature}.png"))
+        plt.close()
+
+    # ------------------------------
+    # 2. Correlation Heatmap
+    # ------------------------------
+    print(f"{label}: Correlation heatmap...")
+
+    corr_cols = NUM_FEATURES + CAT_FEATURES + ["reward"]
+    corr = df[corr_cols].corr()
+
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(corr, annot=True, cmap="coolwarm")
+    plt.title(f"{label} — Correlation Heatmap (steps={num_steps})")
+    plt.savefig(os.path.join(EDA_DIR, f"{run_id}_correlation_heatmap.png"))
+    plt.close()
+
+    # ------------------------------
+    # 3. Time-Series Plots
+    # ------------------------------
+    print(f"{label}: Time-series plots...")
+
+    SAMPLE_STEPS = min(10000, len(df))
+
+    for feature in NUM_FEATURES + CAT_FEATURES:
+        plt.figure(figsize=(10, 5))
+        plt.plot(df[step_col][:SAMPLE_STEPS], df[feature][:SAMPLE_STEPS])
+        plt.title(f"{label} — Time-Series: {feature} (steps={num_steps})")
+        plt.xlabel(step_col)
+        plt.ylabel(feature)
+        plt.savefig(os.path.join(EDA_DIR, f"{run_id}_timeseries_{feature}.png"))
+        plt.close()
+
+    # ------------------------------
+    # 4. PCA + t-SNE
+    # ------------------------------
+    print(f"{label}: PCA + t-SNE...")
+
+    X = df[NUM_FEATURES].fillna(0)
+
+    # PCA
+    pca = PCA(n_components=2)
+    pca_result = pca.fit_transform(X)
+
+    plt.figure(figsize=(8, 6))
+    plt.scatter(pca_result[:, 0], pca_result[:, 1], s=5, alpha=0.5)
+    plt.title(f"{label} — PCA (2D) (steps={num_steps})")
+    plt.savefig(os.path.join(EDA_DIR, f"{run_id}_pca_2d.png"))
+    plt.close()
+
+    # t-SNE
+    tsne = TSNE(n_components=2, perplexity=30, learning_rate=200)
+    X_sample = X.sample(n=min(2000, len(X)), random_state=42)
+    tsne_result = tsne.fit_transform(X_sample)
+
+    plt.figure(figsize=(8, 6))
+    plt.scatter(tsne_result[:, 0], tsne_result[:, 1], s=5, alpha=0.5)
+    plt.title(f"{label} — t-SNE (2D) (steps={num_steps})")
+    plt.savefig(os.path.join(EDA_DIR, f"{run_id}_tsne_2d.png"))
+    plt.close()
+
+    # ------------------------------
+    # 5. RL-Specific Plots
+    # ------------------------------
+    print(f"{label}: RL-specific plots...")
+
+    # Reward distribution
     plt.figure(figsize=(8, 5))
-    sns.histplot(df[feature], kde=True)
-    plt.title(f"{BASELINE_LABEL} — Histogram of {feature}")
-    plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_hist_{feature}.png"))
+    sns.histplot(df["reward"], kde=True)
+    plt.title(f"{label} — Reward Distribution (steps={num_steps})")
+    plt.savefig(os.path.join(EDA_DIR, f"{run_id}_reward_distribution.png"))
     plt.close()
 
-    # Boxplot
-    plt.figure(figsize=(8, 5))
-    sns.boxplot(x=df[feature])
-    plt.title(f"{BASELINE_LABEL} — Boxplot of {feature}")
-    plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_box_{feature}.png"))
+    # Episode lengths
+    if "step_in_episode" in df.columns:
+        ep_lengths = df.groupby("episode")["step_in_episode"].max()
+    elif "Step" in df.columns:
+        ep_lengths = df.groupby("episode")["Step"].max()
+    else:
+        ep_lengths = None
+
+    if ep_lengths is not None:
+        plt.figure(figsize=(8, 5))
+        plt.plot(ep_lengths.index, ep_lengths.values)
+        plt.title(f"{label} — Episode Lengths (steps={num_steps})")
+        plt.savefig(os.path.join(EDA_DIR, f"{run_id}_episode_lengths.png"))
+        plt.close()
+
+    # State-space coverage
+    plt.figure(figsize=(8, 6))
+    plt.scatter(df["queue_N"], df["queue_E"], s=5, alpha=0.3)
+    plt.title(f"{label} — State-Space: queue_N vs queue_E (steps={num_steps})")
+    plt.savefig(os.path.join(EDA_DIR, f"{run_id}_state_space_NE.png"))
     plt.close()
 
-    # Violin plot
-    plt.figure(figsize=(8, 5))
-    sns.violinplot(x=df[feature])
-    plt.title(f"{BASELINE_LABEL} — Violin Plot of {feature}")
-    plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_violin_{feature}.png"))
-    plt.close()
+    print(f"{label}: EDA complete.")
 
-# Categorical features (phase)
-print("Generating categorical distribution plots...")
-
-for feature in CAT_FEATURES:
-    plt.figure(figsize=(10, 5))
-    sns.countplot(x=df[feature])
-    plt.title(f"{BASELINE_LABEL} — Count Plot of {feature}")
-    plt.xlabel(feature)
-    plt.ylabel("Count")
-    plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_count_{feature}.png"))
-    plt.close()
 
 # ============================================================
-# 2.2.2 Correlation Heatmap
+# Run EDA for Baseline and RL
 # ============================================================
 
-print("Generating correlation heatmap...")
+for run_id, filename in RUNS.items():
+    csv_path = os.path.join(RESULTS_DIR, run_id, filename)
+    run_eda(run_id, csv_path)
 
-plt.figure(figsize=(12, 10))
-corr = df[NUM_FEATURES + CAT_FEATURES + ["reward"]].corr()
-sns.heatmap(corr, annot=True, cmap="coolwarm")
-plt.title(f"{BASELINE_LABEL} — Correlation Heatmap")
-plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_correlation_heatmap.png"))
-plt.close()
-
-# ============================================================
-# 2.2.3 Sample Visualizations (Time-Series)
-# ============================================================
-
-print("Generating sample time-series plots...")
-
-SAMPLE_STEPS = 10000  # first 10k steps
-
-for feature in NUM_FEATURES + CAT_FEATURES:
-    plt.figure(figsize=(10, 5))
-    plt.plot(df["total_steps_global"][:SAMPLE_STEPS], df[feature][:SAMPLE_STEPS])
-    plt.title(f"{BASELINE_LABEL} — Time-Series: {feature}")
-    plt.xlabel("Global Step")
-    plt.ylabel(feature)
-    plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_timeseries_{feature}.png"))
-    plt.close()
-
-# ============================================================
-# 2.2.4 Dimensionality Reduction (PCA + t-SNE)
-# ============================================================
-
-print("Generating PCA and t-SNE plots...")
-
-# PCA and t-SNE only on numerical features (phase excluded)
-X = df[NUM_FEATURES].fillna(0)
-
-# PCA
-pca = PCA(n_components=2)
-pca_result = pca.fit_transform(X)
-
-plt.figure(figsize=(8, 6))
-plt.scatter(pca_result[:, 0], pca_result[:, 1], s=5, alpha=0.5)
-plt.title(f"{BASELINE_LABEL} — PCA (2D)")
-plt.xlabel("PC1")
-plt.ylabel("PC2")
-plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_pca_2d.png"))
-plt.close()
-
-# t-SNE
-tsne = TSNE(n_components=2, perplexity=30, learning_rate=200)
-X_sample = X.sample(n=min(2000, len(X)), random_state=42)
-tsne_result = tsne.fit_transform(X_sample)
-
-plt.figure(figsize=(8, 6))
-plt.scatter(tsne_result[:, 0], tsne_result[:, 1], s=5, alpha=0.5)
-plt.title(f"{BASELINE_LABEL} — t-SNE (2D)")
-plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_tsne_2d.png"))
-plt.close()
-
-# ============================================================
-# 2.2.5 RL-Specific Plots
-# ============================================================
-
-print("Generating RL-specific plots...")
-
-# Reward distribution
-plt.figure(figsize=(8, 5))
-sns.histplot(df["reward"], kde=True)
-plt.title(f"{BASELINE_LABEL} — Reward Distribution")
-plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_reward_distribution.png"))
-plt.close()
-
-# Episode lengths
-episode_lengths = df.groupby("episode")["Step"].max()
-
-plt.figure(figsize=(8, 5))
-plt.plot(episode_lengths.index, episode_lengths.values)
-plt.title(f"{BASELINE_LABEL} — Episode Lengths")
-plt.xlabel("Episode")
-plt.ylabel("Steps")
-plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_episode_lengths.png"))
-plt.close()
-
-# State-space coverage
-plt.figure(figsize=(8, 6))
-plt.scatter(df["queue_N"], df["queue_E"], s=5, alpha=0.3)
-plt.title(f"{BASELINE_LABEL} — State-Space Coverage: queue_N vs queue_E")
-plt.xlabel("queue_N")
-plt.ylabel("queue_E")
-plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_state_space_coverage.png"))
-plt.close()
-
-print("Generating additional state-space coverage plot examples...")
-
-# 1. queue_S vs queue_W
-plt.figure(figsize=(8, 6))
-plt.scatter(df["queue_S"], df["queue_W"], s=5, alpha=0.3)
-plt.title(f"{BASELINE_LABEL} — State-Space Coverage: queue_S vs queue_W")
-plt.xlabel("queue_S")
-plt.ylabel("queue_W")
-plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_state_space_coverage_SW.png"))
-plt.close()
-
-# 2. ped_queue vs queue_N
-plt.figure(figsize=(8, 6))
-plt.scatter(df["ped_queue"], df["queue_N"], s=5, alpha=0.3)
-plt.title(f"{BASELINE_LABEL} — State-Space Coverage: ped_queue vs queue_N")
-plt.xlabel("ped_queue")
-plt.ylabel("queue_N")
-plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_state_space_coverage_ped_vs_qN.png"))
-plt.close()
-
-# 3. ped_queue vs queue_E
-plt.figure(figsize=(8, 6))
-plt.scatter(df["ped_queue"], df["queue_E"], s=5, alpha=0.3)
-plt.title(f"{BASELINE_LABEL} — State-Space Coverage: ped_queue vs queue_E")
-plt.xlabel("ped_queue")
-plt.ylabel("queue_E")
-plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_state_space_coverage_ped_vs_qE.png"))
-plt.close()
-
-# 4. phase vs queue_N
-plt.figure(figsize=(8, 6))
-plt.scatter(df["phase"], df["queue_N"], s=5, alpha=0.3)
-plt.title(f"{BASELINE_LABEL} — State-Space Coverage: phase vs queue_N")
-plt.xlabel("phase")
-plt.ylabel("queue_N")
-plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_state_space_coverage_phase_vs_qN.png"))
-plt.close()
-
-# 5. phase vs ped_queue
-plt.figure(figsize=(8, 6))
-plt.scatter(df["phase"], df["ped_queue"], s=5, alpha=0.3)
-plt.title(f"{BASELINE_LABEL} — State-Space Coverage: phase vs ped_queue")
-plt.xlabel("phase")
-plt.ylabel("ped_queue")
-plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_state_space_coverage_phase_vs_ped.png"))
-plt.close()
-
-
-
-
-# Phase over time (RL-specific)
-plt.figure(figsize=(10, 5))
-plt.plot(df["total_steps_global"], df["phase"])
-plt.title(f"{BASELINE_LABEL} — Phase Over Time")
-plt.xlabel("Global Step")
-plt.ylabel("Phase")
-plt.savefig(os.path.join(EDA_DIR, f"{RUN_ID}_phase_over_time.png"))
-plt.close()
-
-print("EDA complete. All plots saved to results/eda/")
+print("\nAll EDA plots saved to results/eda/")
