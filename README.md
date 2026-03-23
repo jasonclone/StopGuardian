@@ -26,15 +26,15 @@ Make sure container is running via Docker Desktop. This will build the Docker im
 ** to run the default sumo simulation manually on gui
 <...\StopGuardian> sumo-gui -c simulation/sumo/test.sumocfg
 
-** Get and compare results of fixed time baseline and trained rl agent:
+** To get and compare results of the baseline and trained rl agent:
 
-run train.py (train the agent. This will take a while)
+run train.py (train the agent and get its performance. This will take a while)
 <...\StopGuardian> python rl/train.py
 
-run b1.py
+run b1.py (same but for fixed traffic signal baseline)
 <...\StopGuardian> python python baselines/b1.py
 
-run compare_rl_baseline.py (generated txt file with comparison details)
+run compare.py (generated txt file with comparison details). Make sure baseline and rl training run for same amount of steps for accurate comparison.
 <...\StopGuardian> python compare.py
 
 
