@@ -9,19 +9,48 @@ import traci
 # ------------------------------------------------------------
 # Safe action switching
 # ------------------------------------------------------------
-def apply_action_safe(action, tls_id: str = "C"):
-    program = traci.trafficlight.getAllProgramLogics(tls_id)[0]
-    phase = traci.trafficlight.getPhase(tls_id)
+# def apply_action_safe(action, tls_id: str = "C"):
+#     program = traci.trafficlight.getAllProgramLogics(tls_id)[0]
+#     phase = traci.trafficlight.getPhase(tls_id)
+#     state = program.phases[phase].state
+
+#     # Block switching during yellow or all-red. forces keep action on non green phase even if model selects switch.
+#     if "y" in state or ("G" not in state and "g" not in state):
+#         return
+
+#     # go to next phase
+#     if action == 1:
+#         next_phase = (phase + 1) % len(program.phases)
+#         traci.trafficlight.setPhase(tls_id, next_phase)
+    
+#     # otherwise action == 0, keep current phase
+
+# ------------------------------------------------------------
+# Realistic Safe Action Switching
+# ------------------------------------------------------------
+
+MIN_GREEN_STEPS = 20   # step length is 0.5 so this corresponds to 10 seconds minimum green time, which is reasonable for safety
+
+def apply_action_safe(action, env, current_step_global=None):
+    
+    program = traci.trafficlight.getAllProgramLogics(env.tls_id)[0]
+    phase = traci.trafficlight.getPhase(env.tls_id)
     state = program.phases[phase].state
 
-    # Block switching during yellow or all-red
+    # 1. Block switching during yellow or all-red. forces keep action on non green phase even if model selects switch.
     if "y" in state or ("G" not in state and "g" not in state):
         return
 
-    # go to next phase
+    # 2. Enforce minimum green time. even if model selects switch, it will be blocked until minimum green time is satisfied.
+    if current_step_global is not None and env.last_switch_step is not None:
+        if current_step_global - env.last_switch_step < MIN_GREEN_STEPS:
+            return
+
+    # 3. If action == 1, switch to next phase
     if action == 1:
         next_phase = (phase + 1) % len(program.phases)
-        traci.trafficlight.setPhase(tls_id, next_phase)
+        traci.trafficlight.setPhase(env.tls_id, next_phase)
+        env.last_switch_step = current_step_global
 
 
 # ------------------------------------------------------------
@@ -29,7 +58,7 @@ def apply_action_safe(action, tls_id: str = "C"):
 # ------------------------------------------------------------
 def select_action(
     state,
-    step,
+    global_step,
     mode,
     online_model,
     device,
@@ -39,21 +68,19 @@ def select_action(
     epsilon_start,
     epsilon_end,
     epsilon_decay_steps,
-    normalize_state,   # <-- REQUIRED
 ):
-    # Normalize using env.normalize_state
-    s_norm = normalize_state(state).reshape(1, -1)
-    s_tensor = torch.from_numpy(s_norm).float().to(device)
+    # Convert state to tensor directly (NO normalization here)
+    s_tensor = torch.from_numpy(np.array(state, dtype=np.float32).reshape(1, -1)).to(device)
 
     # Warmup
-    if mode == "train" and step < warmup_steps:
+    if mode == "train" and global_step < warmup_steps:
         return random.choice(actions)
 
     # Epsilon-greedy
     if mode == "train" and use_epsilon:
         eps = max(
             epsilon_end,
-            epsilon_start - (epsilon_start - epsilon_end) * step / epsilon_decay_steps,
+            epsilon_start - (epsilon_start - epsilon_end) * global_step / epsilon_decay_steps,
         )
         if random.random() < eps:
             return random.choice(actions)

@@ -40,3 +40,6 @@ run compare.py (generated txt file with comparison details). Make sure baseline 
 
 ** Exploratory Data Analysis of the results of the baseline and trained rl agent
 <...\StopGuardian> python eda.py
+
+tensorboard command: tensorboard --logdir results/rl/tb
+ot will give localhost link to view the stats

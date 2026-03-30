@@ -133,5 +133,3 @@ class PrioritizedReplayBuffer:
         self.pos = state.pos
         self.priorities = state.priorities
         self.n_step_buffer = state.n_step_buffer
-
-

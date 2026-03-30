@@ -19,12 +19,13 @@ replay.ReplayBuffer = ReplayBuffer
 replay.ReplayState = ReplayState
 
 REPLAY_PATH = "results/rl/replay/replay.pkl"
-index = 4999
+index = 3769
 
 with open(REPLAY_PATH, "rb") as f:
     data = pickle.load(f)
 
 print("Total transitions collected:", len(data.buffer))
+print("NOTE: Reward in buffer differs from reward in step metrics due to N step discounted returns")
 for i in range(len(data.buffer)):
     print("Example transition from index", i, ":", data.buffer[i])
 

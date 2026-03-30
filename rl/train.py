@@ -12,6 +12,7 @@ from typing import List, Dict, Any
 import numpy as np
 import torch
 import traci
+from torch.utils.tensorboard import SummaryWriter  # TensorBoard
 
 from traffic_env import (
     TrafficEnv,
@@ -44,7 +45,7 @@ from config import (
     PRIORITY_ALPHA,
     PRIORITY_BETA_START,
     PRIORITY_BETA_END,
-    NOISY_SIGMA, # not used here, but in model.py
+    NOISY_SIGMA,  # not used here, but in model.py
     LEARNING_RATE,
     CHECKPOINT_EVERY_EPISODES,
     NUM_ATOMS,
@@ -67,8 +68,8 @@ parser.add_argument(
     choices=["train", "eval", "infer"],
 )
 parser.add_argument("--run_id", type=str, default="rl")
-parser.add_argument("--episodes", type=int, default=1)
-parser.add_argument("--steps_per_episode", type=int, default=5000)
+parser.add_argument("--episodes", type=int, default=50)
+parser.add_argument("--steps_per_episode", type=int, default=2000)
 args = parser.parse_args()
 
 MODE = args.mode
@@ -119,13 +120,15 @@ sys.path.append(tools)
 
 def init_models_and_replay():
     traci.start(make_sumo_config())
-    traci.simulationStep()
+    traci.simulationStep() # ensure SUMO populates lane/TLS metadata
     
-    dummy_state = env.get_state()
-    dummy_norm = env.normalize_state(dummy_state) # must happen before close
+    # initialize env from SUMO now that TraCI is available
+    env.initialize_from_sumo()
+    
+    dummy_state = env.get_state(normalized=True)  # get a dummy state to determine state size for model initialization
     traci.close()
 
-    state_size = len(dummy_norm)
+    state_size = len(dummy_state)
 
     online_model, online_optimizer = build_rainbow_model(
         state_size=state_size,
@@ -180,6 +183,10 @@ def run():
 
     online_model, target_model, replay_buffer, optimizer = init_models_and_replay()
 
+    # TensorBoard writer
+    tb_dir = os.path.join(RUN_DIR, "tb")
+    writer = SummaryWriter(log_dir=tb_dir)
+
     step_rows: List[Dict[str, Any]] = []
     episode_rows: List[Dict[str, Any]] = []
 
@@ -205,6 +212,11 @@ def run():
                 ep_mode = MODE
 
             traci.start(make_sumo_config())
+            # ensure SUMO populates lane/TLS metadata
+            traci.simulationStep() 
+            
+            # re-initialize env metadata for this new TraCI session
+            env.initialize_from_sumo()
             env.reset_tracking()
 
             cumulative_reward = 0.0
@@ -230,26 +242,32 @@ def run():
                     # =========================
                     # 1. READ CURRENT STATE
                     # =========================
-                    veh_data = env.get_vehicle_state()
-                    ped_data = env.get_ped_state()
+                    # veh_data = env.get_vehicle_state()
+                    # ped_data = env.get_ped_state()
 
-                    (
-                        qN, qE, qS, qW,
-                        wN, wE, wS, wW,
-                        veh_thru_step,
-                    ) = veh_data
+                    # (
+                    #     qN, qE, qS, qW,
+                    #     wN, wE, wS, wW,
+                    #     veh_thru_step,
+                    # ) = veh_data
 
-                    ped_queue, ped_wait, ped_thru_step = ped_data
-                    phase = env.get_phase()
+                    # ped_queue, ped_wait, ped_thru_step = ped_data
+                    # phase = env.get_phase()
 
-                    state = (qN, qE, qS, qW, ped_queue, phase)
+                    # state = (qN, qE, qS, qW, ped_queue, phase)
+                    
+                    
+                    # 
+                    state = env.get_state(normalized=True) # use normalized state for action selection
+                    state_raw = env.get_state(normalized=False)  # for reward calculation
+
 
                     # =========================
                     # 2. ACTION
                     # =========================
                     action = select_action(
                         state=state,
-                        step=t,
+                        global_step=total_steps_global,
                         mode=ep_mode,
                         online_model=online_model,
                         device=DEVICE,
@@ -259,10 +277,9 @@ def run():
                         epsilon_start=EPSILON_START,
                         epsilon_end=EPSILON_END,
                         epsilon_decay_steps=EPSILON_DECAY_STEPS,
-                        normalize_state=env.normalize_state,
                     )
 
-                    apply_action_safe(action, "C")
+                    apply_action_safe(action, env, current_step_global=total_steps_global)
 
                     # =========================
                     # 3. PHASE TRACKING
@@ -280,40 +297,73 @@ def run():
                     # =========================
                     # 5. NEXT STATE (AFTER STEP)
                     # =========================
+                    # veh_data = env.get_vehicle_state()
+                    # ped_data = env.get_ped_state()
+
+                    # (
+                    #     qN, qE, qS, qW,
+                    #     wN, wE, wS, wW,
+                    #     veh_thru_step,
+                    # ) = veh_data
+
+                    # ped_queue, ped_wait, ped_thru_step = ped_data
+                    # phase = env.get_phase()
+
+                    # next_state = (qN, qE, qS, qW, ped_queue, phase)
+                    
+                    #* get logging metrics for next state
                     veh_data = env.get_vehicle_state()
                     ped_data = env.get_ped_state()
 
-                    (
-                        qN, qE, qS, qW,
-                        wN, wE, wS, wW,
-                        veh_thru_step,
-                    ) = veh_data
+                    # veh_data = [q_list..., w_list..., throughput]
+                    if len(veh_data) >= 1:
+                        n = (len(veh_data) - 1) // 2
+                        q_list = veh_data[:n]
+                        w_list = veh_data[n:2*n]
+                        veh_thru_step = veh_data[-1]
+                    else:
+                        q_list = []
+                        w_list = []
+                        veh_thru_step = 0
 
                     ped_queue, ped_wait, ped_thru_step = ped_data
                     phase = env.get_phase()
 
-                    next_state = (qN, qE, qS, qW, ped_queue, phase)
+
+                    #* for reward calculation
+                    next_state_raw = env.get_state(normalized=False)
+
 
                     # =========================
                     # 6. METRICS
                     # =========================
+                    # vehicle_throughput += veh_thru_step
+                    # ped_throughput += ped_thru_step
+
+                    # vehicle_queue = qN + qE + qS + qW
+                    # total_queue = vehicle_queue + ped_queue
+
+                    # vehicle_wait = wN + wE + wS + wW
+                    # total_wait = vehicle_wait + ped_wait
+                    
                     vehicle_throughput += veh_thru_step
                     ped_throughput += ped_thru_step
 
-                    vehicle_queue = qN + qE + qS + qW
+                    vehicle_queue = int(sum(q_list)) if q_list else 0 # sum of all vehicle lane queues
                     total_queue = vehicle_queue + ped_queue
 
-                    vehicle_wait = wN + wE + wS + wW
+                    vehicle_wait = float(sum(w_list)) if w_list else 0.0 # sum of all vehicle lane waits
                     total_wait = vehicle_wait + ped_wait
+
 
                     # =========================
                     # 7. REWARD
                     # =========================
-                    reward = env.get_reward(next_state, state)
+                    reward = env.get_reward(next_state_raw, state_raw) # use raw (unnormalized) states for reward calculation
                     cumulative_reward += reward
 
                     # =========================
-                    # 8. LOGGING
+                    # 8. LOGGING (in-memory + TensorBoard step-level)
                     # =========================
                     vehicle_queue_hist.append(vehicle_queue)
                     ped_queue_hist.append(ped_queue)
@@ -325,19 +375,33 @@ def run():
 
                     done = (t == STEPS_PER_EPISODE - 1)
 
+                    # step_rows.append({
+                    #     "global_step": total_steps_global,
+                    #     "episode": ep,
+                    #     "mode": ep_mode,
+                    #     "step_in_episode": t,
+                    #     "queue_N": qN,
+                    #     "queue_E": qE,
+                    #     "queue_S": qS,
+                    #     "queue_W": qW,
+                    #     "wait_N": wN,
+                    #     "wait_E": wE,
+                    #     "wait_S": wS,
+                    #     "wait_W": wW,
+                    #     "ped_queue": ped_queue,
+                    #     "ped_wait": ped_wait,
+                    #     "phase": phase,
+                    #     "reward": reward,
+                    #     "loss": None,
+                    #     "action": None,
+                    # })
                     step_rows.append({
                         "global_step": total_steps_global,
                         "episode": ep,
                         "mode": ep_mode,
                         "step_in_episode": t,
-                        "queue_N": qN,
-                        "queue_E": qE,
-                        "queue_S": qS,
-                        "queue_W": qW,
-                        "wait_N": wN,
-                        "wait_E": wE,
-                        "wait_S": wS,
-                        "wait_W": wW,
+                        "vehicle_queue": vehicle_queue,
+                        "vehicle_wait": vehicle_wait,
                         "ped_queue": ped_queue,
                         "ped_wait": ped_wait,
                         "phase": phase,
@@ -346,11 +410,19 @@ def run():
                         "action": None,
                     })
 
+
+                    # TensorBoard: step-level environment metrics
+                    writer.add_scalar("env/queue_vehicle", vehicle_queue, total_steps_global)
+                    writer.add_scalar("env/queue_ped", ped_queue, total_steps_global)
+                    writer.add_scalar("env/wait_vehicle", vehicle_wait, total_steps_global)
+                    writer.add_scalar("env/wait_ped", ped_wait, total_steps_global)
+                    writer.add_scalar("env/reward_step", reward, total_steps_global)
+
                     # =========================
                     # 9. TRAINING
                     # =========================
                     if ep_mode == "train":
-                        replay_buffer.add(state, action, reward, next_state, done)
+                        replay_buffer.add(state_raw, action, reward, next_state_raw, done)
 
                         loss = train_step(
                             beta=beta,
@@ -377,8 +449,22 @@ def run():
                             step_rows[-1]["loss"] = loss
                             step_rows[-1]["action"] = action
 
+                            # TensorBoard: training metrics
+                            writer.add_scalar("train/loss", loss, total_grad_steps_global)
+                            writer.add_scalar("train/beta", beta, total_grad_steps_global)
+                            writer.add_scalar("train/learning_rate", LEARNING_RATE, total_grad_steps_global)
+                            writer.add_scalar("train/replay_size", len(replay_buffer), total_grad_steps_global)
+
+                            # Optional: log weights/gradients every 1000 grad steps
+                            if total_grad_steps_global % 1000 == 0:
+                                for name, param in online_model.named_parameters():
+                                    writer.add_histogram(f"weights/{name}", param, total_grad_steps_global)
+                                    if param.grad is not None:
+                                        writer.add_histogram(f"grads/{name}", param.grad, total_grad_steps_global)
+
                             if total_grad_steps_global % TARGET_UPDATE_FREQ == 0:
                                 target_model.load_state_dict(online_model.state_dict())
+                                writer.add_scalar("train/target_update", 1, total_grad_steps_global)
 
                     total_steps_global += 1
 
@@ -419,6 +505,15 @@ def run():
                 "episode_ok": int(episode_ok),
             })
 
+            # TensorBoard: episode-level metrics
+            writer.add_scalar("episode/cumulative_reward", cumulative_reward, ep)
+            writer.add_scalar("episode/avg_total_queue", avg_total_queue, ep)
+            writer.add_scalar("episode/avg_total_wait", avg_total_wait, ep)
+            writer.add_scalar("episode/vehicle_throughput", vehicle_throughput, ep)
+            writer.add_scalar("episode/ped_throughput", ped_throughput, ep)
+            writer.add_scalar("episode/switch_count", switch_count, ep)
+            writer.add_scalar("episode/ok_flag", int(episode_ok), ep)
+
             print(
                 f"[Ep {ep:04d} | {ep_mode}] "
                 f"R={cumulative_reward:.2f} | "
@@ -451,6 +546,7 @@ def run():
             traci.close()
         except:
             pass
+        writer.close()  # close TensorBoard writer
 
 
 if __name__ == "__main__":

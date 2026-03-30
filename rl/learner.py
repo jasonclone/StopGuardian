@@ -76,7 +76,7 @@ def train_step(
     v_min,
     v_max,
     delta_z,
-    normalize_state,
+    normalize_state, # passed in normalized function from env to be used for normalizing states in the sampled batch
 ):
     if len(replay_buffer) < min_replay_size:
         return None
@@ -85,8 +85,8 @@ def train_step(
         batch_size, beta
     )
 
-    states_norm = np.array([normalize_state(s) for s in states], dtype=np.float32)
-    next_states_norm = np.array([normalize_state(s) for s in next_states], dtype=np.float32)
+    states_norm = np.array([normalize_state(s) for s in states], dtype=np.float32) # get sampled states from replay buffer and normalize them using env's normalize_state function
+    next_states_norm = np.array([normalize_state(s) for s in next_states], dtype=np.float32) # get sampled next states from replay buffer and normalize them using env's normalize_state function
 
     states_tensor = torch.from_numpy(states_norm).float().to(device)
     next_states_tensor = torch.from_numpy(next_states_norm).float().to(device)

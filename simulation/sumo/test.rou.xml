@@ -38,7 +38,7 @@
       sigma="0.5"
       minGap="2.0"
       speedDev="0.10"
-      actionStepLength="0.1"
+      actionStepLength="0.5"
       lcStrategic="1.0"
       lcCooperative="0.5"
       lcSpeedGain="1.0"
@@ -56,7 +56,7 @@
       sigma="0.5"
       minGap="2.2"
       speedDev="0.08"
-      actionStepLength="0.1"
+      actionStepLength="0.5"
       lcStrategic="1.0"
       lcCooperative="0.5"
       lcSpeedGain="0.9"
@@ -74,7 +74,7 @@
       sigma="0.5"
       minGap="1.8"
       speedDev="0.12"
-      actionStepLength="0.1"
+      actionStepLength="0.5"
       lcStrategic="1.0"
       lcCooperative="0.5"
       lcSpeedGain="1.2"
@@ -92,7 +92,7 @@
       sigma="0.7"
       minGap="3.5"
       speedDev="0.05"
-      actionStepLength="0.1"
+      actionStepLength="0.5"
       lcStrategic="1.0"
       lcCooperative="0.2"
       lcSpeedGain="0.3"
@@ -110,7 +110,7 @@
       sigma="0.7"
       minGap="3.5"
       speedDev="0.05"
-      actionStepLength="0.1"
+      actionStepLength="0.5"
       lcStrategic="1.0"
       lcCooperative="0.3"
       lcSpeedGain="0.2"
@@ -128,7 +128,7 @@
       sigma="1.0"
       minGap="1.0"
       speedDev="0.15"
-      actionStepLength="0.1"
+      actionStepLength="0.5"
       lcStrategic="1.0"
       lcCooperative="0.1"
       lcSpeedGain="1.5"
@@ -147,7 +147,7 @@
       sigma="0.8"
       minGap="1.5"
       speedDev="0.20"
-      actionStepLength="0.1"
+      actionStepLength="0.5"
       lcStrategic="1.0"
       lcCooperative="1.0"
       lcSpeedGain="2.0"
@@ -545,51 +545,51 @@
   <!-- PEDESTRIAN FLOWS (36/hr) -->
   <!-- ========================= -->
 
-  <personFlow id="f_24" begin="0" end="100000" vehsPerHour="36">
+  <personFlow id="f_24" begin="0" end="100000" vehsPerHour="36" departPos="440">
     <walk from="WC" to="CE" />
   </personFlow>
 
-  <personFlow id="f_25" begin="0" end="100000" vehsPerHour="36">
+  <personFlow id="f_25" begin="0" end="100000" vehsPerHour="36" departPos="440">
     <walk from="WC" to="CS" />
   </personFlow>
 
-  <personFlow id="f_26" begin="0" end="100000" vehsPerHour="36">
+  <personFlow id="f_26" begin="0" end="100000" vehsPerHour="36" departPos="440">
     <walk from="WC" to="CN" />
   </personFlow>
 
-  <personFlow id="f_27" begin="0" end="100000" vehsPerHour="36">
+  <personFlow id="f_27" begin="0" end="100000" vehsPerHour="36" departPos="440">
     <walk from="SC" to="CE" />
   </personFlow>
 
-  <personFlow id="f_28" begin="0" end="100000" vehsPerHour="36">
+  <personFlow id="f_28" begin="0" end="100000" vehsPerHour="36" departPos="440">
     <walk from="SC" to="CN" />
   </personFlow>
 
-  <personFlow id="f_29" begin="0" end="100000" vehsPerHour="36">
+  <personFlow id="f_29" begin="0" end="100000" vehsPerHour="36" departPos="440">
     <walk from="SC" to="CW" />
   </personFlow>
 
-  <personFlow id="f_30" begin="0" end="100000" vehsPerHour="36">
+  <personFlow id="f_30" begin="0" end="100000" vehsPerHour="36" departPos="440">
     <walk from="EC" to="CS" />
   </personFlow>
 
-  <personFlow id="f_31" begin="0" end="100000" vehsPerHour="36">
+  <personFlow id="f_31" begin="0" end="100000" vehsPerHour="36" departPos="440">
     <walk from="EC" to="CW" />
   </personFlow>
 
-  <personFlow id="f_32" begin="0" end="100000" vehsPerHour="36">
+  <personFlow id="f_32" begin="0" end="100000" vehsPerHour="36" departPos="440">
     <walk from="EC" to="CN" />
   </personFlow>
 
-  <personFlow id="f_33" begin="0" end="100000" vehsPerHour="36">
+  <personFlow id="f_33" begin="0" end="100000" vehsPerHour="36" departPos="440">
     <walk from="NC" to="CS" />
   </personFlow>
 
-  <personFlow id="f_34" begin="0" end="100000" vehsPerHour="36">
+  <personFlow id="f_34" begin="0" end="100000" vehsPerHour="36" departPos="440">
     <walk from="NC" to="CE" />
   </personFlow>
 
-  <personFlow id="f_35" begin="0" end="100000" vehsPerHour="36">
+  <personFlow id="f_35" begin="0" end="100000" vehsPerHour="36" departPos="440">
     <walk from="NC" to="CW" />
   </personFlow>
 </routes>
