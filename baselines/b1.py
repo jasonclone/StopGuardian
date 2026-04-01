@@ -17,7 +17,7 @@ import traci
 
 from traffic_env import TrafficEnv, make_sumo_config, save_step_csv, save_episode_csv, plot_metrics
 
-env = TrafficEnv("C")
+
 
 # ================================================================
 # Argument parsing
@@ -44,11 +44,26 @@ RUN_DIR = os.path.join(RESULTS_DIR, RUN_ID)
 os.makedirs(RUN_DIR, exist_ok=True)
 
 STEP_CSV = os.path.join(RUN_DIR, "b1_step_metrics.csv")
+
 EPISODE_CSV = os.path.join(RUN_DIR, "b1_episode_metrics.csv")
 PLOT_PATH = os.path.join(RUN_DIR, "b1_plot_reward.png")
 
 SUMO_CFG = "simulation/sumo/test.sumocfg"
 
+#* initialize traffic env
+env = TrafficEnv("C")
+
+CALIB_DIR = os.path.join(RESULTS_DIR, "calib")
+os.makedirs(CALIB_DIR, exist_ok=True)
+
+CALIB_CSV = os.path.join(CALIB_DIR, "b1_calibration.csv")
+
+# verify calibration source csv exists (run b1_cal.py), and if so apply auto-tuning to env params based on observed data
+if os.path.exists(CALIB_CSV):
+    print("[INFO] Applying tuned normalization and reward params from calibration run...")
+    env.calibrate_env_params(CALIB_CSV)
+else:
+    print("[WARNING] Calibration CSV not found. Using default env normalization and reward params.")
 
 # Baseline main
 
@@ -182,6 +197,7 @@ def run():
                         "phase": phase,
                         "reward": reward,
                     })
+                    
                     
                     # TensorBoard: step-level environment metrics
                     writer.add_scalar("env/queue_vehicle", vehicle_queue, total_steps_global)
