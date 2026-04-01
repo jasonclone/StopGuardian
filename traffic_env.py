@@ -24,14 +24,26 @@ class TrafficEnv:
         # Track last switch step to enforce minimum green time if needed in future
         self.last_switch_step = 0
         
-        # reward parameters
-        self.MAX_VEH_QUEUE = 40
-        self.MAX_PED_QUEUE = 30
-        self.REWARD_ABS_PENALTY_WEIGHT = 0.001
-        self.PED_REWARD_WEIGHT = 1.0
-        self.VEH_REWARD_WEIGHT = 10.0
-        self.veh_thru = 0 # initialized from get_state() but set here for clarity
+        # reward normalization constants (based on baseline observations)
+        self.MAX_VEH_QUEUE = 60
+        self.MAX_PED_QUEUE = 15
+        self.MAX_VEH_THRU = 3.0 
+        self.MAX_PED_THRU = 1.5
+        self.MAX_VEH_WAIT = 2000.0
+        self.MAX_PED_WAIT = 400.0
+        # reward weights
+        self.REWARD_ABS_QUEUE_PENALTY_WEIGHT = 0.05
+        self.VEH_REWARD_WEIGHT = 3.0
+        self.PED_REWARD_WEIGHT = 2.5
+        self.THRU_REWARD_WEIGHT = 0.4
+        self.VEH_WAIT_WEIGHT = 0.01
+        self.PED_WAIT_WEIGHT = 0.003
+        self.REWARD_CLIP = 3.0
+        # initialized from get_state() but set here for clarity (tracking vars)
+        self.veh_thru = 0 
         self.ped_thru = 0
+        self.veh_wait = 0
+        self.ped_wait = 0
         
     def initialize_from_sumo(self):
         """
@@ -88,7 +100,7 @@ class TrafficEnv:
     def get_state(self):
         # --- raw data ---
         veh = self.get_vehicle_state()
-        ped_q, ped_w, ped_thru = self.get_ped_state()
+        ped_q, ped_w, ped_thru,= self.get_ped_state()
 
         veh_thru = veh[-1]
 
@@ -105,6 +117,10 @@ class TrafficEnv:
             w_list = veh[n:2*n]
         else:
             q_list, w_list = [], []
+
+        # save wait times for reward
+        self.veh_wait = sum(w_list)
+        self.ped_wait = ped_w
 
         # --- RL STATE ---
         state = q_list + [ped_q, phase]
@@ -247,13 +263,11 @@ class TrafficEnv:
         # state = [veh_lane_vals..., ped_q, phase]
         *veh_vals, ped_q, _ = state
 
-        num_lanes = len(self.veh_lane_order)
-
         # -----------------------------
         # 1. Normalize queues
         # -----------------------------
         veh_total = sum(veh_vals)
-        veh_norm = veh_total / (self.MAX_VEH_QUEUE * num_lanes) if num_lanes > 0 else 0.0
+        veh_norm = veh_total / self.MAX_VEH_QUEUE
         ped_norm = ped_q / self.MAX_PED_QUEUE
 
         total_q_norm = (
@@ -267,7 +281,7 @@ class TrafficEnv:
         *prev_veh_vals, prev_ped_q, _ = prev_state
         prev_veh_total = sum(prev_veh_vals)
 
-        prev_veh_norm = prev_veh_total / (self.MAX_VEH_QUEUE * num_lanes) if num_lanes > 0 else 0.0
+        prev_veh_norm = prev_veh_total / self.MAX_VEH_QUEUE
         prev_ped_norm = prev_ped_q / self.MAX_PED_QUEUE
 
         prev_total_q_norm = (
@@ -278,25 +292,35 @@ class TrafficEnv:
         # -----------------------------
         # 2. Queue improvement reward
         # -----------------------------
+        # queue delta reward: positive if total queue has decreased, negative if increased
         queue_reward = prev_total_q_norm - total_q_norm
-        queue_penalty = self.REWARD_ABS_PENALTY_WEIGHT * total_q_norm
+        # absolute queue penalty: penalize large queues regardless of delta to encourage keeping queues low
+        queue_penalty = self.REWARD_ABS_QUEUE_PENALTY_WEIGHT * total_q_norm
 
         # -----------------------------
-        # 3. Throughput reward (normalized)
+        # 3. Throughput reward (normalized by baseline max)
         # -----------------------------
-        veh_thru = getattr(self, "veh_thru", 0)
-        ped_thru = getattr(self, "ped_thru", 0)
+        veh_thru_norm = self.veh_thru / self.MAX_VEH_THRU   # max_veh_thru_step
+        ped_thru_norm = self.ped_thru / self.MAX_PED_THRU   # max_ped_thru_step
 
-        throughput_reward = 0.1 * (veh_thru + ped_thru)
+        throughput_reward = self.THRU_REWARD_WEIGHT * (veh_thru_norm + ped_thru_norm)
 
         # -----------------------------
-        # 4. Final reward (NO SCALING)
+        # 4. Wait-time penalty (normalized by baseline max)
         # -----------------------------
-        reward = queue_reward - queue_penalty + throughput_reward
+        veh_wait_norm = self.veh_wait / self.MAX_VEH_WAIT   # max_vehicle_wait
+        ped_wait_norm = self.ped_wait / self.MAX_PED_WAIT   # max_ped_wait
 
-        # Keep reward stable
-        reward = float(np.clip(reward, -5.0, 5.0))
+        wait_penalty = (
+            self.VEH_WAIT_WEIGHT * veh_wait_norm +
+            self.PED_WAIT_WEIGHT * ped_wait_norm
+        )
 
+        # -----------------------------
+        # 5. Final reward
+        # -----------------------------
+        reward = queue_reward - queue_penalty - wait_penalty + throughput_reward
+        reward = float(np.clip(reward, -self.REWARD_CLIP, self.REWARD_CLIP))
         return reward
 
 
@@ -354,12 +378,6 @@ def one_hot_phase(phase_idx: int, num_phases: int) -> np.ndarray:
     return vec
 
 
-# def normalize_scalar(x: float, max_val: float) -> float:
-#     if max_val <= 0:
-#         return 0.0
-#     return float(np.clip(x / max_val, 0.0, 1.0))
-
-
 
 def save_step_csv(step_rows, path):
     if not step_rows:
@@ -385,7 +403,8 @@ def plot_metrics(episode_rows, path, MODE=None, RUN_ID=None):
 
     eps = [r["episode"] for r in episode_rows]
     cum_rewards = [r["cumulative_reward"] for r in episode_rows]
-    avg_total = [r["avg_total_queue"] for r in episode_rows]
+    avg_veh_q = [r["avg_vehicle_queue"] for r in episode_rows]
+    avg_ped_q = [r["avg_ped_queue"] for r in episode_rows]
 
     plt.figure(figsize=(10, 6))
 
@@ -399,11 +418,13 @@ def plot_metrics(episode_rows, path, MODE=None, RUN_ID=None):
     plt.title(f"Episode Metrics ({mode_str} - {run_str})")
     plt.grid(True)
 
-    # Queue plot
+    # avg veh and ped Queue plot
     plt.subplot(2, 1, 2)
-    plt.plot(eps, avg_total, marker="o", color="orange")
+    plt.plot(eps, avg_veh_q, marker="o", label="Avg Vehicle Queue")
+    plt.plot(eps, avg_ped_q, marker="o", label="Avg Pedestrian Queue")
     plt.xlabel("Episode")
-    plt.ylabel("Avg Total Queue (veh + ped)")
+    plt.ylabel("Avg Queues")
+    plt.legend()
     plt.grid(True)
 
     plt.tight_layout()

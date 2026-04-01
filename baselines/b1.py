@@ -220,28 +220,30 @@ def run():
             # ===== EPISODE METRICS =====
             avg_vehicle_queue = float(np.mean(vehicle_queue_hist)) if vehicle_queue_hist else -1.0
             avg_ped_queue = float(np.mean(ped_queue_hist)) if ped_queue_hist else -1.0
-            avg_total_queue = float(np.mean(total_queue_hist)) if total_queue_hist else -1.0
 
             avg_vehicle_wait = float(np.mean(vehicle_wait_hist)) if vehicle_wait_hist else -1.0
             avg_ped_wait = float(np.mean(ped_wait_hist)) if ped_wait_hist else -1.0
-            avg_total_wait = float(np.mean(total_wait_hist)) if total_wait_hist else -1.0
             
             max_vehicle_queue = max(vehicle_queue_hist) if vehicle_queue_hist else -1
             max_ped_queue = max(ped_queue_hist) if ped_queue_hist else -1
+            
             max_veh_thru_step = max([row["veh_thru_step"] for row in step_rows if row["episode"] == ep]) if step_rows else -1
             max_ped_thru_step = max([row["ped_thru_step"] for row in step_rows if row["episode"] == ep]) if step_rows else -1
+           
+            max_veh_wait = max(vehicle_wait_hist) if vehicle_wait_hist else -1.0
+            max_ped_wait = max(ped_wait_hist) if ped_wait_hist else -1.0
 
             episode_rows.append({
                 "episode": ep,
                 "cumulative_reward": cumulative_reward,
                 "avg_vehicle_queue": avg_vehicle_queue,
                 "avg_ped_queue": avg_ped_queue,
-                "avg_total_queue": avg_total_queue,
                 "avg_vehicle_wait": avg_vehicle_wait,
                 "avg_ped_wait": avg_ped_wait,
-                "avg_total_wait": avg_total_wait,
                 "max_vehicle_queue": max_vehicle_queue,
                 "max_ped_queue": max_ped_queue,
+                "max_veh_wait": max_veh_wait,
+                "max_ped_wait": max_ped_wait,
                 "max_veh_thru_step": max_veh_thru_step,
                 "max_ped_thru_step": max_ped_thru_step,
                 "vehicle_total_throughput": vehicle_throughput,
@@ -254,11 +256,12 @@ def run():
             writer.add_scalar("episode/cumulative_reward", cumulative_reward, ep)
             writer.add_scalar("episode/avg_vehicle_queue", avg_vehicle_queue, ep)
             writer.add_scalar("episode/avg_ped_queue", avg_ped_queue, ep)
-            writer.add_scalar("episode/avg_total_queue", avg_total_queue, ep)
             writer.add_scalar("episode/avg_vehicle_wait", avg_vehicle_wait, ep)
             writer.add_scalar("episode/avg_ped_wait", avg_ped_wait, ep)
             writer.add_scalar("episode/max_vehicle_queue", max_vehicle_queue, ep)
             writer.add_scalar("episode/max_ped_queue", max_ped_queue, ep)
+            writer.add_scalar("episode/max_veh_wait", max_veh_wait, ep)
+            writer.add_scalar("episode/max_ped_wait", max_ped_wait, ep)
             writer.add_scalar("episode/max_veh_thru_step", max_veh_thru_step, ep)
             writer.add_scalar("episode/max_ped_thru_step", max_ped_thru_step, ep)
             writer.add_scalar("episode/vehicle_total_throughput", vehicle_throughput, ep)
@@ -268,8 +271,6 @@ def run():
 
             print(
                 f"R={cumulative_reward:.2f} | "
-                f"Q_tot={avg_total_queue:.2f} | "
-                f"W_tot={avg_total_wait:.2f} | "
                 f"veh_total_thru={vehicle_throughput} | ped_total_thru={ped_throughput} | "
                 f"switches={switch_count}"
             )
