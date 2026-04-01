@@ -1,5 +1,3 @@
-# rl/learner.py
-
 import numpy as np
 import torch
 
@@ -76,7 +74,7 @@ def train_step(
     v_min,
     v_max,
     delta_z,
-    normalize_state_torch, # passed in normalized function from env to be used for normalizing states in the sampled batch
+    normalize_state_torch,
 ):
     if len(replay_buffer) < min_replay_size:
         return None
@@ -85,19 +83,24 @@ def train_step(
         batch_size, beta
     )
 
-    # get sampled batch from replay buffer, normalize states and next states using env's normalize function, then convert to tensors
     states_tensor = torch.from_numpy(states).float().to(device)
     states_tensor = normalize_state_torch(states_tensor)
 
     next_states_tensor = torch.from_numpy(next_states).float().to(device)
     next_states_tensor = normalize_state_torch(next_states_tensor)
-    
-    
+
     actions_tensor = torch.tensor(actions, dtype=torch.long, device=device)
     rewards_tensor = torch.tensor(rewards, dtype=torch.float32, device=device)
     dones_tensor = torch.tensor(dones, dtype=torch.float32, device=device)
     weights_tensor = torch.tensor(weights, dtype=torch.float32, device=device)
 
+    # input sanity checks
+    if (
+        torch.isnan(states_tensor).any() or torch.isinf(states_tensor).any() or
+        torch.isnan(next_states_tensor).any() or torch.isinf(next_states_tensor).any() or
+        torch.isnan(rewards_tensor).any() or torch.isinf(rewards_tensor).any()
+    ):
+        return None
 
     gamma_n = gamma ** n_steps
 
@@ -109,14 +112,22 @@ def train_step(
 
     with torch.no_grad():
         next_q_values = online_model.q_values(next_states_tensor)
+        if torch.isnan(next_q_values).any() or torch.isinf(next_q_values).any():
+            return None
+
         next_actions = next_q_values.argmax(dim=1)
 
         target_logits = target_model(next_states_tensor)
+        if torch.isnan(target_logits).any() or torch.isinf(target_logits).any():
+            return None
+
         target_logits = target_logits.gather(
             1, next_actions.view(-1, 1, 1).expand(-1, 1, num_atoms)
         ).squeeze(1)
 
         target_probs = torch.softmax(target_logits, dim=-1)
+        if torch.isnan(target_probs).any() or torch.isinf(target_probs).any():
+            return None
 
         support = target_model.support
 
@@ -131,6 +142,13 @@ def train_step(
             delta_z,
         )
 
+        if torch.isnan(proj_dist).any() or torch.isinf(proj_dist).any():
+            return None
+
+        proj_dist = torch.clamp(proj_dist, min=0.0)
+        proj_dist_sum = proj_dist.sum(dim=1, keepdim=True)
+        proj_dist = proj_dist / torch.clamp(proj_dist_sum, min=1e-8)
+
     # =========================
     # Predicted distribution
     # =========================
@@ -144,8 +162,17 @@ def train_step(
     log_probs = torch.log_softmax(logits, dim=-1)
     probs = torch.softmax(logits, dim=-1)
 
+    if (
+        torch.isnan(log_probs).any() or torch.isinf(log_probs).any() or
+        torch.isnan(probs).any() or torch.isinf(probs).any()
+    ):
+        return None
+
     loss_per_sample = -(proj_dist * log_probs).sum(dim=1)
     loss = (weights_tensor * loss_per_sample).mean()
+
+    if torch.isnan(loss) or torch.isinf(loss):
+        return None
 
     optimizer.zero_grad()
     loss.backward()

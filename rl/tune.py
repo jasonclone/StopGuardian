@@ -216,17 +216,17 @@ def train_wrapper(config):
 # Search Space
 # ============================================================
 search_space = {
-    "LEARNING_RATE": tune.loguniform(1e-5, 5e-4),
-    "GAMMA": tune.uniform(0.95, 0.999),
+    "LEARNING_RATE": tune.loguniform(1e-5, 2e-4),
+    "GAMMA": tune.uniform(0.95, 0.99),
     "N_STEPS": tune.choice([3, 5, 7]),
-    "BUFFER_SIZE": tune.lograndint(10000, 80000),
+    "BUFFER_SIZE": tune.lograndint(10000, 100000),
     "BATCH_SIZE": tune.choice([64, 128, 256]),
-    "PRIORITY_ALPHA": tune.uniform(0.3, 0.9),
-    "PRIORITY_BETA_START": tune.uniform(0.2, 0.6),
-    "PRIORITY_BETA_END": tune.uniform(0.8, 1.0),
-    "NOISY_SIGMA": tune.uniform(0.05, 0.5),
-    "V_MIN": tune.uniform(-800.0, -100.0),
-    "V_MAX": tune.uniform(-50.0, 0.0),
+    "PRIORITY_ALPHA": tune.uniform(0.5, 0.7),
+    "PRIORITY_BETA_START": tune.uniform(0.3, 0.5),
+    "PRIORITY_BETA_END": tune.uniform(0.8, 0.95),
+    "NOISY_SIGMA": tune.uniform(0.1, 0.3),
+    "V_MIN": tune.uniform(-600.0, -400.0),
+    "V_MAX": tune.uniform(400.0, 600.0),
 }
 
 
