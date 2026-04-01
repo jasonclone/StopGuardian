@@ -204,7 +204,7 @@ def train_wrapper(config):
 
         train.report(
             {
-                "loss": loss,
+                "loss": loss if loss is not None else float("inf"),
                 "training_iteration": ep + 1,
                 "avg_env_step_ms": avg_env_step_ms,
                 "avg_train_step_ms": avg_train_step_ms,
