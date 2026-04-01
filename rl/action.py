@@ -9,25 +9,6 @@ import traci
 # ------------------------------------------------------------
 # Safe action switching
 # ------------------------------------------------------------
-# def apply_action_safe(action, tls_id: str = "C"):
-#     program = traci.trafficlight.getAllProgramLogics(tls_id)[0]
-#     phase = traci.trafficlight.getPhase(tls_id)
-#     state = program.phases[phase].state
-
-#     # Block switching during yellow or all-red. forces keep action on non green phase even if model selects switch.
-#     if "y" in state or ("G" not in state and "g" not in state):
-#         return
-
-#     # go to next phase
-#     if action == 1:
-#         next_phase = (phase + 1) % len(program.phases)
-#         traci.trafficlight.setPhase(tls_id, next_phase)
-    
-#     # otherwise action == 0, keep current phase
-
-# ------------------------------------------------------------
-# Realistic Safe Action Switching
-# ------------------------------------------------------------
 
 MIN_GREEN_STEPS = 20   # step length is 0.5 so this corresponds to 10 seconds minimum green time, which is reasonable for safety
 
@@ -54,10 +35,10 @@ def apply_action_safe(action, env, current_step_global=None):
 
 
 # ------------------------------------------------------------
-# Action selection (normalization REQUIRED)
+# Action selection raw state input
 # ------------------------------------------------------------
 def select_action(
-    state,
+    state_raw,
     global_step,
     mode,
     online_model,
@@ -68,15 +49,27 @@ def select_action(
     epsilon_start,
     epsilon_end,
     epsilon_decay_steps,
+    normalize_state_torch, 
 ):
-    # Convert state to tensor directly (NO normalization here)
-    s_tensor = torch.from_numpy(np.array(state, dtype=np.float32).reshape(1, -1)).to(device)
+    # -------------------------
+    # 1. Convert to tensor (GPU)
+    # -------------------------
+    s_tensor = torch.tensor(state_raw, dtype=torch.float32, device=device).unsqueeze(0)
 
-    # Warmup
+    # -------------------------
+    # 2. Normalize ON GPU
+    # -------------------------
+    s_tensor = normalize_state_torch(s_tensor)
+
+    # -------------------------
+    # 3. Warmup
+    # -------------------------
     if mode == "train" and global_step < warmup_steps:
         return random.choice(actions)
 
-    # Epsilon-greedy
+    # -------------------------
+    # 4. Epsilon-greedy
+    # -------------------------
     if mode == "train" and use_epsilon:
         eps = max(
             epsilon_end,
@@ -85,9 +78,15 @@ def select_action(
         if random.random() < eps:
             return random.choice(actions)
 
-    # Greedy action
-    online_model.eval()
+    # -------------------------
+    # 5. Forward pass (GPU)
+    # -------------------------
+    if mode == "eval":
+        online_model.eval()
+    else:
+        online_model.train()
+        
     with torch.no_grad():
-        q_vals = online_model.q_values(s_tensor)[0].cpu().numpy()
+        q_vals = online_model.q_values(s_tensor)[0]
 
-    return int(np.argmax(q_vals))
+    return int(torch.argmax(q_vals).item())

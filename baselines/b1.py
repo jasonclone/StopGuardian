@@ -24,8 +24,8 @@ env = TrafficEnv("C")
 # ================================================================
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--episodes", type=int, default=5)
-parser.add_argument("--steps_per_episode", type=int, default=2000)
+parser.add_argument("--episodes", type=int, default=1)
+parser.add_argument("--steps_per_episode", type=int, default=1000)
 parser.add_argument("--run_id", type=str, default="b1")
 args = parser.parse_args()
 
@@ -100,21 +100,8 @@ def run():
                     # # =========================
                     # # 1. READ CURRENT STATE
                     # # =========================
-                    # veh_data = env.get_vehicle_state()
-                    # ped_data = env.get_ped_state()
-
-                    # (
-                    #     qN, qE, qS, qW,
-                    #     wN, wE, wS, wW,
-                    #     veh_thru_step,
-                    # ) = veh_data
-
-                    # ped_queue, ped_wait, ped_thru_step = ped_data
-                    # phase = env.get_phase()
-
-                    # state = (qN, qE, qS, qW, ped_queue, phase)
                     
-                    state_raw = env.get_state(normalized=False)  # for reward calculation
+                    state_raw, _ = env.get_state()  # for reward calculation
 
 
                     # =========================
@@ -133,56 +120,28 @@ def run():
                     # =========================
                     # NEXT STATE (AFTER STEP)
                     # =========================
-                    # veh_data = env.get_vehicle_state()
-                    # ped_data = env.get_ped_state()
-
-                    # (
-                    #     qN, qE, qS, qW,
-                    #     wN, wE, wS, wW,
-                    #     veh_thru_step,
-                    # ) = veh_data
-
-                    # ped_queue, ped_wait, ped_thru_step = ped_data
-                    # phase = env.get_phase()
-
-                    # next_state = (qN, qE, qS, qW, ped_queue, phase)
                     
-                    #* get logging metrics for next state
-                    veh_data = env.get_vehicle_state()
-                    ped_data = env.get_ped_state()
 
-                    # veh_data = [q_list..., w_list..., throughput]
-                    if len(veh_data) >= 1:
-                        n = (len(veh_data) - 1) // 2
-                        q_list = veh_data[:n]
-                        w_list = veh_data[n:2*n]
-                        veh_thru_step = veh_data[-1]
-                    else:
-                        q_list = []
-                        w_list = []
-                        veh_thru_step = 0
-
-                    ped_queue, ped_wait, ped_thru_step = ped_data
                     phase = env.get_phase()
 
 
                     #* for reward calculation
-                    next_state_raw = env.get_state(normalized=False)
+                    next_state_raw, next_info = env.get_state()
+                    
+                    q_list = next_info["veh_q_list"]
+                    w_list = next_info["veh_w_list"]
+                    veh_thru = next_info["veh_thru"]
+
+                    ped_queue = next_info["ped_q"]
+                    ped_wait = next_info["ped_w"]
+                    ped_thru = next_info["ped_thru"]
 
                     # =========================
                     # 6. METRICS
                     # =========================
-                    # vehicle_throughput += veh_thru_step
-                    # ped_throughput += ped_thru_step
-
-                    # vehicle_queue = qN + qE + qS + qW
-                    # total_queue = vehicle_queue + ped_queue
-
-                    # vehicle_wait = wN + wE + wS + wW
-                    # total_wait = vehicle_wait + ped_wait
                     
-                    vehicle_throughput += veh_thru_step
-                    ped_throughput += ped_thru_step
+                    vehicle_throughput += veh_thru
+                    ped_throughput += ped_thru
 
                     vehicle_queue = int(sum(q_list)) if q_list else 0 # sum of all vehicle lane queues
                     total_queue = vehicle_queue + ped_queue
@@ -194,7 +153,6 @@ def run():
                     # =========================
                     # 7. REWARD
                     # =========================
-                    # reward = env.get_reward(next_state, state)
                     
                     reward = env.get_reward(next_state_raw, state_raw)
                     cumulative_reward += reward
@@ -210,24 +168,6 @@ def run():
                     ped_wait_hist.append(ped_wait)
                     total_wait_hist.append(total_wait)
                     
-
-                    # step_rows.append({
-                    #     "total_steps_global": total_steps_global,
-                    #     "episode": ep,
-                    #     "Step": t,
-                    #     "queue_N": qN,
-                    #     "queue_E": qE,
-                    #     "queue_S": qS,
-                    #     "queue_W": qW,
-                    #     "wait_N": wN,
-                    #     "wait_E": wE,
-                    #     "wait_S": wS,
-                    #     "wait_W": wW,
-                    #     "ped_queue": ped_queue,
-                    #     "ped_wait": ped_wait,
-                    #     "phase": phase,
-                    #     "reward": reward,
-                    # })
                     
                     step_rows.append({
                         "global_step": total_steps_global,
@@ -237,6 +177,8 @@ def run():
                         "vehicle_wait": vehicle_wait,
                         "ped_queue": ped_queue,
                         "ped_wait": ped_wait,
+                        "ped_thru_step": ped_thru,
+                        "veh_thru_step": veh_thru,
                         "phase": phase,
                         "reward": reward,
                     })
@@ -247,6 +189,8 @@ def run():
                     writer.add_scalar("env/wait_vehicle", vehicle_wait, total_steps_global)
                     writer.add_scalar("env/wait_ped", ped_wait, total_steps_global)
                     writer.add_scalar("env/reward_step", reward, total_steps_global)
+                    writer.add_scalar("env/veh_thru_step", veh_thru, total_steps_global)
+                    writer.add_scalar("env/ped_thru_step", ped_thru, total_steps_global)
 
 
 
@@ -281,6 +225,11 @@ def run():
             avg_vehicle_wait = float(np.mean(vehicle_wait_hist)) if vehicle_wait_hist else -1.0
             avg_ped_wait = float(np.mean(ped_wait_hist)) if ped_wait_hist else -1.0
             avg_total_wait = float(np.mean(total_wait_hist)) if total_wait_hist else -1.0
+            
+            max_vehicle_queue = max(vehicle_queue_hist) if vehicle_queue_hist else -1
+            max_ped_queue = max(ped_queue_hist) if ped_queue_hist else -1
+            max_veh_thru_step = max([row["veh_thru_step"] for row in step_rows if row["episode"] == ep]) if step_rows else -1
+            max_ped_thru_step = max([row["ped_thru_step"] for row in step_rows if row["episode"] == ep]) if step_rows else -1
 
             episode_rows.append({
                 "episode": ep,
@@ -291,21 +240,41 @@ def run():
                 "avg_vehicle_wait": avg_vehicle_wait,
                 "avg_ped_wait": avg_ped_wait,
                 "avg_total_wait": avg_total_wait,
-                "vehicle_throughput": vehicle_throughput,
-                "ped_throughput": ped_throughput,
+                "max_vehicle_queue": max_vehicle_queue,
+                "max_ped_queue": max_ped_queue,
+                "max_veh_thru_step": max_veh_thru_step,
+                "max_ped_thru_step": max_ped_thru_step,
+                "vehicle_total_throughput": vehicle_throughput,
+                "ped_total_throughput": ped_throughput,
                 "switch_count": switch_count,
                 "episode_ok": int(episode_ok),
             })
+            
+            # TensorBoard: episode-level metrics
+            writer.add_scalar("episode/cumulative_reward", cumulative_reward, ep)
+            writer.add_scalar("episode/avg_vehicle_queue", avg_vehicle_queue, ep)
+            writer.add_scalar("episode/avg_ped_queue", avg_ped_queue, ep)
+            writer.add_scalar("episode/avg_total_queue", avg_total_queue, ep)
+            writer.add_scalar("episode/avg_vehicle_wait", avg_vehicle_wait, ep)
+            writer.add_scalar("episode/avg_ped_wait", avg_ped_wait, ep)
+            writer.add_scalar("episode/max_vehicle_queue", max_vehicle_queue, ep)
+            writer.add_scalar("episode/max_ped_queue", max_ped_queue, ep)
+            writer.add_scalar("episode/max_veh_thru_step", max_veh_thru_step, ep)
+            writer.add_scalar("episode/max_ped_thru_step", max_ped_thru_step, ep)
+            writer.add_scalar("episode/vehicle_total_throughput", vehicle_throughput, ep)
+            writer.add_scalar("episode/ped_total_throughput", ped_throughput, ep)
+            writer.add_scalar("episode/switch_count", switch_count, ep)
+            writer.add_scalar("episode/ok_flag", int(episode_ok), ep)
 
             print(
                 f"R={cumulative_reward:.2f} | "
                 f"Q_tot={avg_total_queue:.2f} | "
                 f"W_tot={avg_total_wait:.2f} | "
-                f"veh_thru={vehicle_throughput} | ped_thru={ped_throughput} | "
+                f"veh_total_thru={vehicle_throughput} | ped_total_thru={ped_throughput} | "
                 f"switches={switch_count}"
             )
             
-            # Save outputs\
+            # Save outputs
             save_step_csv(step_rows, STEP_CSV)
             save_episode_csv(episode_rows, EPISODE_CSV)
             plot_metrics(episode_rows, PLOT_PATH, RUN_ID=RUN_ID)

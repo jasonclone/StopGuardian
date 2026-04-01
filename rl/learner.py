@@ -76,7 +76,7 @@ def train_step(
     v_min,
     v_max,
     delta_z,
-    normalize_state, # passed in normalized function from env to be used for normalizing states in the sampled batch
+    normalize_state_torch, # passed in normalized function from env to be used for normalizing states in the sampled batch
 ):
     if len(replay_buffer) < min_replay_size:
         return None
@@ -85,15 +85,19 @@ def train_step(
         batch_size, beta
     )
 
-    states_norm = np.array([normalize_state(s) for s in states], dtype=np.float32) # get sampled states from replay buffer and normalize them using env's normalize_state function
-    next_states_norm = np.array([normalize_state(s) for s in next_states], dtype=np.float32) # get sampled next states from replay buffer and normalize them using env's normalize_state function
+    # get sampled batch from replay buffer, normalize states and next states using env's normalize function, then convert to tensors
+    states_tensor = torch.from_numpy(states).float().to(device)
+    states_tensor = normalize_state_torch(states_tensor)
 
-    states_tensor = torch.from_numpy(states_norm).float().to(device)
-    next_states_tensor = torch.from_numpy(next_states_norm).float().to(device)
-    actions_tensor = torch.from_numpy(actions).long().to(device)
-    rewards_tensor = torch.from_numpy(rewards).float().to(device)
-    dones_tensor = torch.from_numpy(dones.astype(np.float32)).float().to(device)
-    weights_tensor = torch.from_numpy(weights).float().to(device)
+    next_states_tensor = torch.from_numpy(next_states).float().to(device)
+    next_states_tensor = normalize_state_torch(next_states_tensor)
+    
+    
+    actions_tensor = torch.tensor(actions, dtype=torch.long, device=device)
+    rewards_tensor = torch.tensor(rewards, dtype=torch.float32, device=device)
+    dones_tensor = torch.tensor(dones, dtype=torch.float32, device=device)
+    weights_tensor = torch.tensor(weights, dtype=torch.float32, device=device)
+
 
     gamma_n = gamma ** n_steps
 
