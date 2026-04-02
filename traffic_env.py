@@ -455,6 +455,7 @@ def plot_metrics(episode_rows, path, MODE=None, RUN_ID=None):
 
 
 
+
 def detect_warmup_index(df, cols=None, window_size=30, activity_frac=0.2, eps=1e-6, min_rows_after=50):
     """
     Return the first index considered steady state.
@@ -627,17 +628,17 @@ def auto_tune_max_vals(env, csv_path, percentile=90, margin=1.1,
         print(f"MAX_PED_THRU  = {env.MAX_PED_THRU:.2f}")
 
 
-def auto_tune_weights(env, csv_path, percentile=90, margin=1.1, eps=1e-8,
-                      min_weight=1e-4, max_weight=1e3, reward_clip_bounds=(1.0, 10.0),
+def auto_tune_weights(env, csv_path, percentile=90, margin=1.1,
+                      eps=1e-8, min_weight=1e-4, max_weight=1e3,
+                      reward_clip_bounds=(1.0, 10.0),
                       warmup_detector_kwargs=None, verbose=True):
     """
-    Auto-tune reward weights using normalized magnitudes.
+    Auto-tune all reward weights using normalized magnitudes from CSV.
 
-    - Filters warmup rows using detect_warmup_index.
-    - Normalizes signals by MAX_* values before computing weights.
-    - Clips weights to avoid numerical extremes.
-    - Computes REWARD_CLIP from normalized approx rewards and scales to bounds.
-    - Prints diagnostics when verbose=True.
+    - VEH_Q_WEIGHT now scales with average vehicle queue delta.
+    - PED_Q_WEIGHT scales relative to VEH_Q_WEIGHT.
+    - *_WAIT_WEIGHT and *_THRU_WEIGHT scale inversely to their normalized magnitudes.
+    - Uses percentile to compute REWARD_CLIP and caps extremes.
     """
     import pandas as pd
     import numpy as np
@@ -645,85 +646,87 @@ def auto_tune_weights(env, csv_path, percentile=90, margin=1.1, eps=1e-8,
     df = pd.read_csv(csv_path)
 
     if warmup_detector_kwargs is None:
-        warmup_detector_kwargs = {"window_size": 30, "activity_frac": 0.2, "eps": 1e-6, "min_rows_after": 50}
+        warmup_detector_kwargs = {
+            "window_size": 30,
+            "activity_frac": 0.2,
+            "eps": 1e-6,
+            "min_rows_after": 50,
+        }
 
+    # detect warmup rows
     start_idx = detect_warmup_index(df, **warmup_detector_kwargs)
     df_filtered = df.iloc[start_idx:].copy()
     if df_filtered.empty:
         df_filtered = df.copy()
 
-    # compute deltas used by reward
+    # compute absolute deltas
     df_filtered["veh_q_delta"] = df_filtered["vehicle_queue"].diff().abs()
     df_filtered["ped_q_delta"] = df_filtered["ped_queue"].diff().abs()
     df_filtered = df_filtered.dropna().reset_index(drop=True)
 
-    # ensure MAX_* exist; compute if missing
-    if not (hasattr(env, "MAX_VEH_QUEUE") and hasattr(env, "MAX_VEH_WAIT")):
+    # Ensure MAX_* constants exist
+    required_max_attrs = [
+        "MAX_VEH_QUEUE", "MAX_PED_QUEUE",
+        "MAX_VEH_WAIT", "MAX_PED_WAIT",
+        "MAX_VEH_THRU", "MAX_PED_THRU"
+    ]
+    missing = [a for a in required_max_attrs if not hasattr(env, a)]
+    if missing:
         auto_tune_max_vals(env, csv_path, percentile=percentile, margin=margin,
                            warmup_detector_kwargs=warmup_detector_kwargs, verbose=verbose)
 
+    # helper for safe division
     def safe_div(series, denom):
-        denom = float(denom) if denom is not None else 1.0
-        return series / (denom + eps)
+        return series / (float(denom) + eps)
 
+    # normalized series
     veh_q_norm = safe_div(df_filtered["vehicle_queue"], env.MAX_VEH_QUEUE)
     ped_q_norm = safe_div(df_filtered["ped_queue"], env.MAX_PED_QUEUE)
-
     veh_wait_norm = safe_div(df_filtered["vehicle_wait"], env.MAX_VEH_WAIT)
     ped_wait_norm = safe_div(df_filtered["ped_wait"], env.MAX_PED_WAIT)
-
     veh_thru_norm = safe_div(df_filtered["veh_thru_step"], env.MAX_VEH_THRU)
     ped_thru_norm = safe_div(df_filtered["ped_thru_step"], env.MAX_PED_THRU)
 
-    # average magnitudes in normalized space
-    veh_q_mag = float(df_filtered["veh_q_delta"].mean() / (env.MAX_VEH_QUEUE + eps))
-    ped_q_mag = float(df_filtered["ped_q_delta"].mean() / (env.MAX_PED_QUEUE + eps))
-
+    # average magnitudes
+    veh_q_mag = float(df_filtered["veh_q_delta"].mean())
+    ped_q_mag = float(df_filtered["ped_q_delta"].mean())
     veh_wait_mag = float(veh_wait_norm.mean())
     ped_wait_mag = float(ped_wait_norm.mean())
-
     veh_thru_mag = float(veh_thru_norm.mean())
     ped_thru_mag = float(ped_thru_norm.mean())
 
-    base = max(veh_q_mag, eps)
+    # VEH_Q_WEIGHT scales with magnitude
+    env.VEH_Q_WEIGHT = float(np.clip(veh_q_mag * margin, min_weight, max_weight))
+    # PED_Q_WEIGHT relative to VEH_Q_WEIGHT
+    env.PED_Q_WEIGHT = float(np.clip((ped_q_mag / (veh_q_mag + eps)) * env.VEH_Q_WEIGHT, min_weight, max_weight))
+    # Wait and throughput weights inversely scale to normalized magnitude
+    env.VEH_WAIT_WEIGHT = float(np.clip(env.VEH_Q_WEIGHT / (veh_wait_mag + eps), min_weight, max_weight))
+    env.PED_WAIT_WEIGHT = float(np.clip(env.VEH_Q_WEIGHT / (ped_wait_mag + eps), min_weight, max_weight))
+    env.VEH_THRU_WEIGHT = float(np.clip(env.VEH_Q_WEIGHT / (veh_thru_mag + eps), min_weight, max_weight))
+    env.PED_THRU_WEIGHT = float(np.clip(env.VEH_Q_WEIGHT / (ped_thru_mag + eps), min_weight, max_weight))
 
-    # core weights (normalized)
-    env.VEH_Q_WEIGHT = float(np.clip(1.0, min_weight, max_weight))
-    env.PED_Q_WEIGHT = float(np.clip((ped_q_mag / base) if base > eps else 1.0, min_weight, max_weight))
-
-    env.VEH_WAIT_WEIGHT = float(np.clip(base / (veh_wait_mag + eps), min_weight, max_weight))
-    env.PED_WAIT_WEIGHT = float(np.clip(base / (ped_wait_mag + eps), min_weight, max_weight))
-
-    env.VEH_THRU_WEIGHT = float(np.clip(base / (veh_thru_mag + eps), min_weight, max_weight))
-    env.PED_THRU_WEIGHT = float(np.clip(base / (ped_thru_mag + eps), min_weight, max_weight))
-
-    # queue penalty based on normalized congestion
+    # queue penalty
     total_q = 0.5 * veh_q_norm + 0.5 * ped_q_norm
     avg_congestion = float(total_q.mean()) if len(total_q) > 0 else 0.0
     env.REWARD_ABS_QUEUE_PENALTY_WEIGHT = float(np.clip(0.4 / (avg_congestion**1.5 + eps), 0.01, 100.0))
 
-    # estimate reward magnitudes in normalized space
+    # approximate reward magnitude for clipping
     approx_rewards = []
-    for i in range(1, len(df_filtered)):
+    for i in range(len(df_filtered)):
         r_norm = (
-            env.VEH_Q_WEIGHT * (df_filtered["veh_q_delta"].iloc[i] / (env.MAX_VEH_QUEUE + eps)) +
-            env.PED_Q_WEIGHT * (df_filtered["ped_q_delta"].iloc[i] / (env.MAX_PED_QUEUE + eps)) +
-            env.VEH_THRU_WEIGHT * (df_filtered["veh_thru_step"].iloc[i] / (env.MAX_VEH_THRU + eps)) +
-            env.PED_THRU_WEIGHT * (df_filtered["ped_thru_step"].iloc[i] / (env.MAX_PED_THRU + eps)) -
-            env.VEH_WAIT_WEIGHT * (df_filtered["vehicle_wait"].iloc[i] / (env.MAX_VEH_WAIT + eps)) -
-            env.PED_WAIT_WEIGHT * (df_filtered["ped_wait"].iloc[i] / (env.MAX_PED_WAIT + eps))
+            env.VEH_Q_WEIGHT * (df_filtered["veh_q_delta"].iloc[i] / (env.MAX_VEH_QUEUE + eps))
+            + env.PED_Q_WEIGHT * (df_filtered["ped_q_delta"].iloc[i] / (env.MAX_PED_QUEUE + eps))
+            + env.VEH_THRU_WEIGHT * (df_filtered["veh_thru_step"].iloc[i] / (env.MAX_VEH_THRU + eps))
+            + env.PED_THRU_WEIGHT * (df_filtered["ped_thru_step"].iloc[i] / (env.MAX_PED_THRU + eps))
+            - env.VEH_WAIT_WEIGHT * (df_filtered["vehicle_wait"].iloc[i] / (env.MAX_VEH_WAIT + eps))
+            - env.PED_WAIT_WEIGHT * (df_filtered["ped_wait"].iloc[i] / (env.MAX_PED_WAIT + eps))
         )
         approx_rewards.append(abs(r_norm))
+    approx_rewards = np.array(approx_rewards) if len(approx_rewards) > 0 else np.array([1.0])
 
-    if len(approx_rewards) == 0:
-        approx_rewards = np.array([1.0])
-    else:
-        approx_rewards = np.array(approx_rewards)
-
-    clip_norm = float(np.percentile(approx_rewards, 95) + eps)
+    clip_norm = float(np.percentile(approx_rewards, percentile) + eps)
     median_norm = float(np.median(approx_rewards) + eps)
-    scale_factor = float(np.clip(1.0 / median_norm, 0.1, 10.0))
-
+    scale_factor = float(np.clip(1.0 / (median_norm + eps), 0.1, 10.0))
     env.REWARD_CLIP = float(np.clip(clip_norm * scale_factor, reward_clip_bounds[0], reward_clip_bounds[1]))
 
     if verbose:
