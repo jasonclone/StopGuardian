@@ -53,10 +53,14 @@ SUMO_CFG = "simulation/sumo/test.sumocfg"
 #* initialize traffic env
 env = TrafficEnv("C")
 
+# get calibration data from b1_cal.py runs (if it exists) to apply tuned normalization and reward params to env before training
 CALIB_DIR = os.path.join(RESULTS_DIR, "calib")
 os.makedirs(CALIB_DIR, exist_ok=True)
 
-CALIB_CSV = os.path.join(CALIB_DIR, "b1_calibration.csv")
+CALIB_CSV = os.path.abspath(
+    os.path.join(RESULTS_DIR, "calib", "b1_calibration.csv")
+)
+
 
 # verify calibration source csv exists (run b1_cal.py), and if so apply auto-tuning to env params based on observed data
 if os.path.exists(CALIB_CSV):
@@ -169,7 +173,7 @@ def run():
                     # 7. REWARD
                     # =========================
                     
-                    reward = env.get_reward(next_state_raw, state_raw)
+                    reward = env.get_reward(next_state_raw, state_raw, action=None) # use raw (unnormalized) states for reward calculation
                     cumulative_reward += reward
 
                     # =========================

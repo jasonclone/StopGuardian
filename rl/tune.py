@@ -38,7 +38,16 @@ os.environ["TUNE_MODE"] = "1" # to signal tune workers to avoid importing Tensor
 from action import apply_action_safe, select_action
 from learner import train_step
 from traffic_env import TrafficEnv, make_sumo_config
-from train import init_models_and_replay   # now pure model init only
+from train import RESULTS_DIR, RUN_DIR, RUN_ID, RUN_ID, CALIB_DIR,  init_models_and_replay   # now pure model init only
+
+
+# get calibration data from b1_cal.py runs (if it exists) to apply tuned normalization and reward params to env before training
+CALIB_DIR = os.path.join(RESULTS_DIR, "calib")
+os.makedirs(CALIB_DIR, exist_ok=True)
+
+CALIB_CSV = os.path.abspath(
+    os.path.join(RESULTS_DIR, "calib", "b1_calibration.csv")
+)
 
 
 # ============================================================
@@ -66,13 +75,25 @@ optuna_search = ConcurrencyLimiter(
 )
 
 
+
 # ============================================================
 # Training Loop
 # ============================================================
 def train_wrapper(config):
+    
 
-    # each trial gets its own env
+    # each worker creates its own environment instance and applies calibration params if available, to avoid any cross-worker SUMO session issues and to ensure each worker benefits from calibration tuning if available
     env = TrafficEnv("C")
+
+
+
+    # verify calibration source csv exists (run b1_cal.py), and if so apply auto-tuning to env params based on observed data
+    if os.path.exists(CALIB_CSV):
+        print("[INFO] Applying tuned normalization and reward params from calibration run...")
+        env.calibrate_env_params(CALIB_CSV)
+    else:
+        print("[WARNING] Calibration CSV not found. Using default env normalization and reward params.")
+
 
     # avoid port collisions
     time.sleep(0.2)
@@ -137,6 +158,7 @@ def train_wrapper(config):
                 state_raw, _ = env.get_state()
 
                 action = select_action(
+                    env=env,
                     state_raw=state_raw,
                     global_step=t,
                     mode="train",
@@ -157,7 +179,7 @@ def train_wrapper(config):
 
                 next_state_raw, _ = env.get_state()
 
-                reward = env.get_reward(next_state_raw, state_raw)
+                reward = env.get_reward(next_state_raw, state_raw, action)
                 cumulative_reward += reward
 
                 done = (t == STEPS_PER_EPISODE - 1)
@@ -279,3 +301,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

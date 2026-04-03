@@ -62,7 +62,9 @@ from config import (
     DELTA_Z,
 )
 
-env = TrafficEnv("C")
+
+
+
 
 
 MODE = "train" # default
@@ -96,6 +98,9 @@ PLOT_PATH = os.path.join(RUN_DIR, "rl_plot_reward.png")
 BEST_MODEL_PATH = os.path.join(CHECKPOINT_DIR, "best_model.pth")
 LAST_MODEL_PATH = os.path.join(CHECKPOINT_DIR, "last_model.pth")
 REPLAY_PATH = os.path.join(REPLAY_DIR, "replay.pkl")
+
+# create environment
+env = TrafficEnv("C")
 
 # ================================================================
 # SUMO setup
@@ -235,6 +240,7 @@ def run():
                     # 2. ACTION
                     # =========================
                     action = select_action(
+                        env=env,
                         state_raw=state_raw,
                         global_step=total_steps_global,
                         mode=ep_mode,
@@ -301,7 +307,7 @@ def run():
                     # =========================
                     # 7. REWARD
                     # =========================
-                    reward = env.get_reward(next_state_raw, state_raw) # use raw (unnormalized) states for reward calculation
+                    reward = env.get_reward(next_state_raw, state_raw, action) # use raw (unnormalized) states for reward calculation
                     cumulative_reward += reward
 
                     # =========================
@@ -505,7 +511,7 @@ if __name__ == "__main__":
         choices=["train", "eval", "infer"],
     )
     parser.add_argument("--run_id", type=str, default="rl")
-    parser.add_argument("--episodes", type=int, default=50)
+    parser.add_argument("--episodes", type=int, default=1300)
     parser.add_argument("--steps_per_episode", type=int, default=1000)
     args = parser.parse_args()
 
