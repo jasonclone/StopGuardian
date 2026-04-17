@@ -1,0 +1,12 @@
+numpy
+pandas
+matplotlib
+torch==2.1.0
+torch-directml
+gymnasium
+traci
+# for logging
+tensorboard
+# for hyperparameter tuning
+optuna
+ray[tune]
