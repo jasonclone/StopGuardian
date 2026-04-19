@@ -114,9 +114,8 @@ def train_wrapper(config):
     traci.simulationStep()
 
     env.initialize_from_sumo()
-    dummy_state, _ = env.get_state()
-    dummy_state_tensor = env.normalize_state_torch(dummy_state)
-    state_size = dummy_state_tensor.shape[0]
+
+    state_size = env.compute_state_size()
 
     traci.close()
 

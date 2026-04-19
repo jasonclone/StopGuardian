@@ -1,0 +1,2 @@
+episode,mode,cumulative_reward,avg_vehicle_queue,avg_ped_queue,avg_vehicle_wait,avg_ped_wait,max_vehicle_queue,max_ped_queue,max_veh_wait,max_ped_wait,max_veh_thru_step,max_ped_thru_step,vehicle_total_throughput,ped_total_throughput,switch_count,episode_ok
+0,train,-723.7699999808866,37.926,6.119,1322.463,247.6225,82,14,3922.5,841.5,3,2,366,26,41,1

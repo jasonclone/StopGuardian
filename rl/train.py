@@ -511,7 +511,7 @@ if __name__ == "__main__":
         choices=["train", "eval", "infer"],
     )
     parser.add_argument("--run_id", type=str, default="rl")
-    parser.add_argument("--episodes", type=int, default=1300)
+    parser.add_argument("--episodes", type=int, default=50)
     parser.add_argument("--steps_per_episode", type=int, default=1000)
     args = parser.parse_args()
 

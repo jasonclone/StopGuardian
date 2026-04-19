@@ -1,12 +1,12 @@
 # StopGuardian
 Deep Reinforcement Learning–Based Adaptive Traffic Signal Optimization  
-Using SUMO and a DQN agent.
+Using SUMO and a Rainbow DQN agent.
 
 ## Overview
 StopGuardian implements a full RL pipeline for traffic signal control at a single urban intersection.  
 The project includes:
 
-- A custom SUMO-based Gym environment for the agent to understand the traffic scenario
+- A custom SUMO-based environment for the agent to understand traffic scenarios
 - A fixed-time baseline controller (b1.py)
 - A Rainbow DQN agent for adaptive signal control 
 - An Exploratory Data Analysis (EDA) pipeline
@@ -32,7 +32,7 @@ run train.py (train the agent and get its performance. This will take a while)
 <...\StopGuardian> python rl/train.py
 
 run b1.py (same but for fixed traffic signal baseline)
-<...\StopGuardian> python python baselines/b1.py
+<...\StopGuardian> python baselines/b1.py
 
 run compare.py (generated txt file with comparison details). Make sure baseline and rl training run for same amount of steps for accurate comparison.
 <...\StopGuardian> python compare.py
@@ -42,4 +42,4 @@ run compare.py (generated txt file with comparison details). Make sure baseline 
 <...\StopGuardian> python eda.py
 
 tensorboard command: tensorboard --logdir results/rl/tb
-ot will give localhost link to view the stats
+it will give localhost link to view the stats

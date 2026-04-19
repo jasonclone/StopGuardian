@@ -10,31 +10,10 @@ import traci
 # Safe action switching
 # ------------------------------------------------------------
 
-# PHASE_MIN_STEPS = {
-#     0: 0,   # Ped WALK (0 sec) - allow immediate switch to next phase if no pedestrians (acts as no ped pressing crosswalk button)
-#     1: 10,   # Through green min (5 sec)
-#     2: 6,    # Yellow min (3 sec)
-#     3: 10,   # Left-turn green min (5 sec)
-#     4: 6,    # Yellow
-#     5: 0,   # Ped WALK
-#     6: 10,   # Through green
-#     7: 6,   # Yellow
-#     8: 10,  # Left-turn green
-#     9: 6,   # Yellow
-# }
-  # step length is 0.5. 2 steps = 1 sec. check testtls for max possible values, which act as baseline
-
 def apply_action_safe(action, env, current_step_global=None):
 
     program = traci.trafficlight.getAllProgramLogics(env.tls_id)[0]
     phase = traci.trafficlight.getPhase(env.tls_id)
-
-    # # 2. Dynamic minimum phase time per phase
-    # min_phase_len = PHASE_MIN_STEPS.get(phase, 0)
-
-    # if current_step_global is not None and env.last_switch_step is not None:
-    #     if current_step_global - env.last_switch_step < min_phase_len:
-    #         return
 
     # 3. Switch if action == 1
     if action == 1:

@@ -27,12 +27,23 @@ class TrafficEnv:
         # reward normalization constants (default until calibrated)
         self.MAX_VEH_QUEUE = 100
         self.MAX_PED_QUEUE = 20
+        self.MAX_VEH_WAIT = 5500.0
+        self.MAX_PED_WAIT = 1500.0
+        self.MAX_VEH_THRU = 3
+        self.MAX_PED_THRU = 2
 
         # initialized from get_state() but set here for clarity (tracking vars)
         self.veh_thru = 0
         self.ped_thru = 0
         self.veh_wait = 0
         self.ped_wait = 0
+        
+        # previous step's values, also initialized by get_state()
+        self.prev_veh_wait = 0.0
+        self.prev_ped_wait = 0.0
+        self.prev_veh_thru = 0
+        self.prev_ped_thru = 0
+
         
     def initialize_from_sumo(self):
         """
@@ -87,18 +98,13 @@ class TrafficEnv:
         return len(program.phases)
 
 
+    # called every step in main training loop. also updates env variables
     def get_state(self):
         # --- raw data ---
         veh = self.get_vehicle_state()
-        ped_q, ped_w, ped_thru,= self.get_ped_state()
+        ped_q, ped_w, ped_thru = self.get_ped_state()
 
         veh_thru = veh[-1]
-
-        # save throughput for reward
-        self.veh_thru = veh_thru
-        self.ped_thru = ped_thru
-
-        phase = self.get_phase()
 
         # --- unpack vehicle ---
         if len(veh) >= 1:
@@ -108,14 +114,24 @@ class TrafficEnv:
         else:
             q_list, w_list = [], []
 
-        # save wait times for reward
+        # --- save previous values BEFORE updating ---
+        self.prev_veh_wait = self.veh_wait
+        self.prev_ped_wait = self.ped_wait
+        self.prev_veh_thru = self.veh_thru
+        self.prev_ped_thru = self.ped_thru
+
+        # --- update current values ---
+        self.veh_thru = veh_thru
+        self.ped_thru = ped_thru
         self.veh_wait = sum(w_list)
         self.ped_wait = ped_w
+
+        phase = self.get_phase()
 
         # --- RL STATE ---
         state = q_list + [ped_q, phase]
 
-        # --- EXTRA INFO (for logging) ---
+        # --- EXTRA INFO ---
         info = {
             "veh_q_list": q_list,
             "veh_w_list": w_list,
@@ -127,6 +143,7 @@ class TrafficEnv:
         }
 
         return state, info
+
 
 
     def get_vehicle_state(self):
@@ -249,21 +266,22 @@ class TrafficEnv:
         return out
     
     
+     
     def get_reward(self, state, prev_state=None, action=None):
         *veh_vals, ped_q, phase = state
 
         # --- Current congestion ---
         veh_total = float(sum(veh_vals))
-        veh_norm = min(veh_total / (self.MAX_VEH_QUEUE + 1e-9), 1.0)
-        ped_norm = min(float(ped_q) / (self.MAX_PED_QUEUE + 1e-9), 1.0)
+        veh_norm = veh_total / (self.MAX_VEH_QUEUE)
+        ped_norm = float(ped_q) / (self.MAX_PED_QUEUE)
         current_congestion = veh_norm + ped_norm
 
         # --- Previous congestion ---
         if prev_state is not None:
             *prev_veh_vals, prev_ped_q, prev_phase = prev_state
             prev_veh_total = float(sum(prev_veh_vals))
-            prev_veh_norm = min(prev_veh_total / (self.MAX_VEH_QUEUE + 1e-9), 1.0)
-            prev_ped_norm = min(float(prev_ped_q) / (self.MAX_PED_QUEUE + 1e-9), 1.0)
+            prev_veh_norm = prev_veh_total / (self.MAX_VEH_QUEUE)
+            prev_ped_norm = float(prev_ped_q) / (self.MAX_PED_QUEUE)
             prev_congestion = prev_veh_norm + prev_ped_norm
         else:
             prev_congestion = current_congestion
@@ -274,52 +292,14 @@ class TrafficEnv:
         # --- Base reward ---
         reward = -current_congestion + delta
 
-        # --- Switch penalty ---
+        # --- Switch penalty  ---
         if action == 1:
-            program = traci.trafficlight.getAllProgramLogics(self.tls_id)[0]
-            max_steps = int(program.phases[phase].duration * 2)
-            alpha = 0.02
-            reward -= alpha * max_steps
+            alpha = 65.0
+            # penalty for switching depends on how bad current action was. 
+            penalty = alpha * max(0, -delta)
+            reward -= penalty
 
         return float(reward)
-
-
-
-    # def get_reward(self, state, prev_state=None, action=None):
-    #     # state = [veh_lane_vals..., ped_q, phase]
-    #     *veh_vals, ped_q, phase = state
-
-    #     # -----------------------------
-    #     # 1. Base congestion penalty
-    #     # -----------------------------
-    #     veh_total = float(sum(veh_vals))
-    #     veh_norm = min(veh_total / (self.MAX_VEH_QUEUE + 1e-9), 1.0)
-    #     ped_norm = min(float(ped_q) / (self.MAX_PED_QUEUE + 1e-9), 1.0)
-
-    #     reward = - (veh_norm + 0.5 * ped_norm)
-
-    #     # -----------------------------
-    #     # 2. Dynamic switch penalty
-    #     # -----------------------------
-    #     if action == 1:
-    #         program = traci.trafficlight.getAllProgramLogics(self.tls_id)[0]
-
-    #         # SUMO phase duration in seconds → convert to 0.5s steps
-    #         max_steps = int(program.phases[phase].duration * 2)
-
-    #         # α controls strength of penalty
-    #         alpha = 0.025
-
-    #         # Penalty is proportional to phase duration
-    #         # Long phases → big penalty
-    #         # Short phases → small penalty
-    #         penalty = alpha * max_steps
-
-    #         reward -= penalty
-
-    #     return float(reward)
-
-
 
 
 # ================================================================
@@ -427,5 +407,4 @@ def plot_metrics(episode_rows, path, MODE=None, RUN_ID=None):
     plt.tight_layout()
     plt.savefig(path)
     plt.close()
-
 

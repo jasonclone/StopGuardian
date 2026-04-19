@@ -101,6 +101,13 @@ def train_step(
         torch.isnan(rewards_tensor).any() or torch.isinf(rewards_tensor).any()
     ):
         return None
+    
+    
+    # Data augmentation: Gaussian noise injection
+    if online_model.training:
+        states_tensor += 0.01 * torch.randn_like(states_tensor)
+        next_states_tensor += 0.01 * torch.randn_like(next_states_tensor)
+
 
     gamma_n = gamma ** n_steps
 
