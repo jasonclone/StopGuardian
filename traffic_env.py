@@ -409,7 +409,7 @@ class TrafficEnv:
 
             delta = prev_congestion - current_congestion
 
-            reward = delta
+            reward = -current_congestion
 
 
             return float(reward)

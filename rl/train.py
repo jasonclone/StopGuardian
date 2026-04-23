@@ -599,7 +599,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", type=str, default="train", choices=["train", "eval", "infer"])
     parser.add_argument("--run_id", type=str, default="rl")
-    parser.add_argument("--episodes", type=int, default=50)
+    parser.add_argument("--episodes", type=int, default=250)
     parser.add_argument("--steps_per_episode", type=int, default=1000)
     parser.add_argument("--model", type=str, default="rainbow", choices=["rainbow", "standard"])
 

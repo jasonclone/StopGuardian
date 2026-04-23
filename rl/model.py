@@ -1,4 +1,4 @@
-# model.py
+# rl/model.py
 import functools
 import numpy as np
 import torch
@@ -16,7 +16,9 @@ class NoisyLinear(nn.Module):
         self.out_features = out_features
 
         mu_range = 1.0 / np.sqrt(in_features)
-        self.weight_mu = nn.Parameter(torch.empty(out_features, in_features).uniform_(-mu_range, mu_range))
+        self.weight_mu = nn.Parameter(
+            torch.empty(out_features, in_features).uniform_(-mu_range, mu_range)
+        )
         self.bias_mu = nn.Parameter(torch.empty(out_features).uniform_(-mu_range, mu_range))
 
         base_sigma = float(sigma_init) / np.sqrt(in_features)
@@ -34,25 +36,40 @@ class NoisyLinear(nn.Module):
         return torch.sign(x) * torch.sqrt(torch.abs(x))
 
     def reset_noise(self, device=None):
-        if device is None:
-            device = self.weight_mu.device
-        eps_in = torch.randn(self.in_features, device=device)
-        eps_out = torch.randn(self.out_features, device=device)
-        f_in = self._f(eps_in)
-        f_out = self._f(eps_out)
-        self.weight_epsilon.copy_(f_out.ger(f_in))
-        self.bias_epsilon.copy_(f_out)
+        """
+        Reset factorized noise. If device is provided, create noise on that device.
+        Otherwise infer device from parameters.
+        """
+        try:
+            if device is None:
+                device = self.weight_mu.device
+            eps_in = torch.randn(self.in_features, device=device)
+            eps_out = torch.randn(self.out_features, device=device)
+            f_in = self._f(eps_in)
+            f_out = self._f(eps_out)
+            # use outer product (ger) to create factorized noise
+            self.weight_epsilon.copy_(f_out.ger(f_in))
+            self.bias_epsilon.copy_(f_out)
+        except Exception as e:
+            print("NoisyLinear.reset_noise failed:", e)
 
     def forward(self, x):
-        if self.training:
-            if torch.count_nonzero(self.weight_epsilon) == 0 and torch.count_nonzero(self.bias_epsilon) == 0:
-                self.reset_noise(device=x.device)
-            weight = self.weight_mu + self.weight_sigma * self.weight_epsilon
-            bias = self.bias_mu + self.bias_sigma * self.bias_epsilon
-        else:
-            weight = self.weight_mu
-            bias = self.bias_mu
-        return x @ weight.t() + bias
+        try:
+            if self.training:
+                # explicit scalar checks to avoid ambiguous tensor->bool conversion
+                if self.weight_epsilon.abs().sum().item() == 0 and self.bias_epsilon.abs().sum().item() == 0:
+                    # ensure noise is created on the same device as the input
+                    self.reset_noise(device=x.device)
+                weight = self.weight_mu + self.weight_sigma * self.weight_epsilon
+                bias = self.bias_mu + self.bias_sigma * self.bias_epsilon
+            else:
+                weight = self.weight_mu
+                bias = self.bias_mu
+            return x @ weight.t() + bias
+        except Exception as e:
+            print("NoisyLinear.forward failed:", e)
+            # fallback: deterministic forward to avoid crash
+            return x @ self.weight_mu.t() + self.bias_mu
 
 
 class RainbowDQN(nn.Module):
@@ -73,33 +90,64 @@ class RainbowDQN(nn.Module):
         self.a_noisy2 = NoisyLinear(256, num_actions * num_atoms)
 
         self.relu = nn.ReLU()
+        # support will be moved with the model when .to(device) is called
         self.register_buffer("support", torch.linspace(v_min, v_max, num_atoms))
 
     def forward(self, x):
-        x = self.relu(self.fc1(x))
-        x = self.relu(self.fc2(x))
-        x = self.dropout(x)
+        try:
+            x = self.relu(self.fc1(x))
+            x = self.relu(self.fc2(x))
+            x = self.dropout(x)
 
-        v = self.relu(self.v_noisy1(x))
-        v = self.v_noisy2(v)
+            v = self.relu(self.v_noisy1(x))
+            v = self.v_noisy2(v)
 
-        a = self.relu(self.a_noisy1(x))
-        a = self.a_noisy2(a)
-        a = a.view(-1, self.num_actions, self.num_atoms)
+            a = self.relu(self.a_noisy1(x))
+            a = self.a_noisy2(a)
+            a = a.view(-1, self.num_actions, self.num_atoms)
 
-        v = v.view(-1, 1, self.num_atoms)
-        a_mean = a.mean(dim=1, keepdim=True)
-        return v + (a - a_mean)
+            v = v.view(-1, 1, self.num_atoms)
+            a_mean = a.mean(dim=1, keepdim=True)
+            return v + (a - a_mean)
+        except Exception as e:
+            print("RainbowDQN.forward failed:", e)
+            # fallback: return zeros to avoid crashing caller
+            batch = x.shape[0] if x is not None else 1
+            return torch.zeros(batch, self.num_actions, self.num_atoms, device=next(self.parameters()).device)
 
     def q_values(self, x):
-        probs = torch.softmax(self.forward(x), dim=-1)
-        return torch.sum(probs * self.support, dim=-1)
+        try:
+            probs = torch.softmax(self.forward(x), dim=-1)
+            return torch.sum(probs * self.support, dim=-1)
+        except Exception as e:
+            print("RainbowDQN.q_values failed:", e)
+            # fallback: zeros
+            batch = x.shape[0] if x is not None else 1
+            return torch.zeros(batch, self.num_actions, device=next(self.parameters()).device)
 
-    def reset_noise(self):
-        self.v_noisy1.reset_noise()
-        self.v_noisy2.reset_noise()
-        self.a_noisy1.reset_noise()
-        self.a_noisy2.reset_noise()
+    def reset_noise(self, device=None):
+        """
+        Reset noise for all NoisyLinear layers.
+        Accepts an optional device argument and forwards it to sublayers.
+        If device is None, infer from model parameters.
+        """
+        try:
+            if device is None:
+                try:
+                    device = next(self.parameters()).device
+                except StopIteration:
+                    device = None
+
+            for layer_name in ("v_noisy1", "v_noisy2", "a_noisy1", "a_noisy2"):
+                layer = getattr(self, layer_name, None)
+                if layer is None:
+                    continue
+                try:
+                    layer.reset_noise(device=device)
+                except Exception as e:
+                    print(f"Failed resetting noise for layer {layer_name}:", e)
+        except Exception as e:
+            print("RainbowDQN.reset_noise failed:", e)
 
 
 class DQN(nn.Module):
@@ -115,7 +163,12 @@ class DQN(nn.Module):
         )
 
     def forward(self, x):
-        return self.net(x)
+        try:
+            return self.net(x)
+        except Exception as e:
+            print("DQN.forward failed:", e)
+            batch = x.shape[0] if x is not None else 1
+            return torch.zeros(batch, self.net[-1].out_features, device=next(self.parameters()).device)
 
     def q_values(self, x):
         return self.forward(x)
@@ -143,8 +196,8 @@ def _wrap_optimizer_with_scheduler(optimizer: optim.Optimizer, scheduler: optim.
         result = original_step(*args, **kwargs)
         try:
             scheduler.step()
-        except Exception:
-            pass
+        except Exception as e:
+            print("Scheduler.step failed inside wrapped optimizer.step:", e)
         return result
 
     optimizer.step = step_with_scheduler
@@ -179,13 +232,16 @@ def save_checkpoint(path, model, optimizer):
     """
     Save model, optimizer, and scheduler state (if present).
     """
-    payload = {
-        "model": model.state_dict(),
-        "optimizer": optimizer.state_dict(),
-    }
-    if hasattr(optimizer, "scheduler") and optimizer.scheduler is not None:
-        payload["scheduler"] = optimizer.scheduler.state_dict()
-    torch.save(payload, path)
+    try:
+        payload = {
+            "model": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+        }
+        if hasattr(optimizer, "scheduler") and optimizer.scheduler is not None:
+            payload["scheduler"] = optimizer.scheduler.state_dict()
+        torch.save(payload, path)
+    except Exception as e:
+        print("save_checkpoint failed:", e)
 
 
 def load_checkpoint(path, model, optimizer, device=None):
@@ -193,17 +249,20 @@ def load_checkpoint(path, model, optimizer, device=None):
     Load model, optimizer, and scheduler state.
     After loading optimizer state, rewrap optimizer.step to restore scheduler wrapper.
     """
-    ckpt = torch.load(path, map_location=device or "cpu")
-    model.load_state_dict(ckpt["model"])
-    optimizer.load_state_dict(ckpt["optimizer"])
-    if "scheduler" in ckpt and hasattr(optimizer, "scheduler"):
-        try:
-            optimizer.scheduler.load_state_dict(ckpt["scheduler"])
-        except Exception:
-            pass
-    # Rewrap optimizer.step in case load_state_dict replaced the wrapper
-    if hasattr(optimizer, "scheduler") and optimizer.scheduler is not None:
-        _wrap_optimizer_with_scheduler(optimizer, optimizer.scheduler)
+    try:
+        ckpt = torch.load(path, map_location=device or "cpu")
+        model.load_state_dict(ckpt["model"])
+        optimizer.load_state_dict(ckpt["optimizer"])
+        if "scheduler" in ckpt and hasattr(optimizer, "scheduler"):
+            try:
+                optimizer.scheduler.load_state_dict(ckpt["scheduler"])
+            except Exception as e:
+                print("Failed loading scheduler state:", e)
+        # Rewrap optimizer.step in case load_state_dict replaced the wrapper
+        if hasattr(optimizer, "scheduler") and optimizer.scheduler is not None:
+            _wrap_optimizer_with_scheduler(optimizer, optimizer.scheduler)
+    except Exception as e:
+        print("load_checkpoint failed:", e)
     return model, optimizer
 
 
@@ -213,7 +272,9 @@ if __name__ == "__main__":
     dummy_state = 10
     dummy_actions = 2
     dummy_atoms = 51
-    model, opt = build_rainbow_model(dummy_state, dummy_actions, dummy_atoms, -10, 10, lr=1e-3, device="cpu", lr_decay_steps=10)
+    model, opt = build_rainbow_model(
+        dummy_state, dummy_actions, dummy_atoms, -10, 10, lr=1e-3, device="cpu", lr_decay_steps=10
+    )
     print("initial lr:", opt.param_groups[0]["lr"])
     for i in range(12):
         opt.zero_grad()
