@@ -32,7 +32,7 @@ run train.py (train the agent and get its performance. This will take a while)
 <...\StopGuardian> python rl/train.py
 
 run b1.py (same but for fixed traffic signal baseline)
-<...\StopGuardian> python baselines/b1.py
+<...\StopGuardian> python python baselines/b1.py
 
 run compare.py (generated txt file with comparison details). Make sure baseline and rl training run for same amount of steps for accurate comparison.
 <...\StopGuardian> python compare.py

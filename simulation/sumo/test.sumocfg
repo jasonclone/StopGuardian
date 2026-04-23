@@ -14,10 +14,6 @@
         <begin value="0"/>
         <end value="100000"/>
         <step-length value="0.5"/>
-
-
-        <random value="true"/>
-
     </time>
 
 </sumoConfiguration>

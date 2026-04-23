@@ -1,7 +1,4 @@
 # rl/replay.py
-
-
-
 import numpy as np
 import pickle
 import os
@@ -133,3 +130,61 @@ class PrioritizedReplayBuffer:
         self.pos = state.pos
         self.priorities = state.priorities
         self.n_step_buffer = state.n_step_buffer
+        
+        
+        
+        
+        
+        
+# ================================================================
+# Uniform Replay Buffer (non prioritized and single step returns used in standard DQN)
+# ================================================================
+
+class UniformReplayBuffer:
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.buffer = []
+        self.pos = 0
+
+    def __len__(self):
+        return len(self.buffer)
+
+    def add(self, s, a, r, s_next, done):
+        transition = (s, a, r, s_next, done)
+        if len(self.buffer) < self.capacity:
+            self.buffer.append(transition)
+        else:
+            self.buffer[self.pos] = transition
+        self.pos = (self.pos + 1) % self.capacity
+
+    def sample(self, batch_size):
+        idxs = np.random.choice(len(self.buffer), batch_size, replace=False)
+        samples = [self.buffer[i] for i in idxs]
+        states, actions, rewards, next_states, dones = zip(*samples)
+        return (
+            np.array(states),
+            np.array(actions),
+            np.array(rewards),
+            np.array(next_states),
+            np.array(dones),
+        )
+
+    def flush(self):
+        # single-step DQN: nothing to flush
+        pass
+
+    def save(self, path):
+        state = {
+            "buffer": self.buffer,
+            "pos": self.pos,
+        }
+        with open(path, "wb") as f:
+            pickle.dump(state, f)
+
+    def load(self, path):
+        if not os.path.exists(path):
+            return
+        with open(path, "rb") as f:
+            state = pickle.load(f)
+        self.buffer = state["buffer"]
+        self.pos = state["pos"]
