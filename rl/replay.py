@@ -3,6 +3,34 @@ import numpy as np
 import pickle
 import os
 from dataclasses import dataclass
+from typing import Optional
+
+from config import (
+    DEVICE,
+    GAMMA,
+    N_STEPS,
+    BUFFER_SIZE,
+    BATCH_SIZE,
+    NOISY_SIGMA,
+    MIN_REPLAY_SIZE,
+    WARMUP_STEPS,
+    USE_EPSILON,
+    EPSILON_START,
+    EPSILON_END,
+    EPSILON_DECAY_STEPS,
+    ACTIONS,
+    NUM_ACTIONS,
+    PRIORITY_ALPHA,
+    PRIORITY_BETA_START,
+    PRIORITY_BETA_END,
+    TAU,
+    LEARNING_RATE,
+    CHECKPOINT_EVERY_EPISODES,
+    NUM_ATOMS,
+    V_MIN,
+    V_MAX,
+    DELTA_Z,
+)
 
 # ================================================================
 # Prioritized Replay Buffer
@@ -17,7 +45,7 @@ class ReplayState:
 
 
 class PrioritizedReplayBuffer:
-    def __init__(self, capacity, alpha, n_steps, gamma):
+    def __init__(self, capacity = BUFFER_SIZE, alpha = PRIORITY_ALPHA, n_steps = N_STEPS, gamma = GAMMA):
         self.capacity = capacity
         self.alpha = alpha
         self.n_steps = n_steps
@@ -79,6 +107,8 @@ class PrioritizedReplayBuffer:
             self.n_step_buffer.pop(0)
 
     def sample(self, batch_size, beta):
+        if len(self.buffer) == 0:
+            raise ValueError("Cannot sample from an empty replay buffer.")
         if len(self.buffer) == self.capacity:
             prios = self.priorities
         else:
@@ -94,7 +124,11 @@ class PrioritizedReplayBuffer:
         samples = [self.buffer[i] for i in idxs]
 
         weights = (len(self.buffer) * probs[idxs]) ** (-beta)
-        weights /= weights.max()
+        # avoid division by zero
+        if weights.max() == 0:
+            weights = np.ones_like(weights)
+        else:
+            weights /= weights.max()
 
         states, actions, rewards, next_states, dones = zip(*samples)
         return (
@@ -109,9 +143,14 @@ class PrioritizedReplayBuffer:
 
     def update_priorities(self, idxs, td_errors):
         for i, td in zip(idxs, td_errors):
-            self.priorities[i] = self._priority(np.abs(td))
+            # ensure index is within current buffer length
+            if 0 <= i < len(self.priorities):
+                self.priorities[i] = self._priority(float(td))
 
-    def save(self, path):
+    def save(self, path: str):
+        """
+        Save buffer state to a file path (pickle).
+        """
         state = ReplayState(
             buffer=self.buffer,
             pos=self.pos,
@@ -121,7 +160,10 @@ class PrioritizedReplayBuffer:
         with open(path, "wb") as f:
             pickle.dump(state, f)
 
-    def load(self, path):
+    def load(self, path: str):
+        """
+        Load buffer state from a file path (pickle).
+        """
         if not os.path.exists(path):
             return
         with open(path, "rb") as f:
@@ -130,18 +172,40 @@ class PrioritizedReplayBuffer:
         self.pos = state.pos
         self.priorities = state.priorities
         self.n_step_buffer = state.n_step_buffer
-        
-        
-        
-        
-        
-        
+
+    # New helper methods for checkpoint compatibility
+    def save_to_bytes(self) -> bytes:
+        """
+        Return a bytes representation of the replay buffer state suitable for embedding
+        into a checkpoint file.
+        """
+        state = ReplayState(
+            buffer=self.buffer,
+            pos=self.pos,
+            priorities=self.priorities,
+            n_step_buffer=self.n_step_buffer,
+        )
+        return pickle.dumps(state)
+
+    def load_from_bytes(self, b: bytes):
+        """
+        Restore replay buffer state from bytes produced by save_to_bytes.
+        """
+        if not b:
+            return
+        state: ReplayState = pickle.loads(b)
+        self.buffer = state.buffer
+        self.pos = state.pos
+        self.priorities = state.priorities
+        self.n_step_buffer = state.n_step_buffer
+
+
 # ================================================================
 # Uniform Replay Buffer (non prioritized and single step returns used in standard DQN)
 # ================================================================
 
 class UniformReplayBuffer:
-    def __init__(self, capacity):
+    def __init__(self, capacity = BUFFER_SIZE):
         self.capacity = capacity
         self.buffer = []
         self.pos = 0
@@ -158,6 +222,8 @@ class UniformReplayBuffer:
         self.pos = (self.pos + 1) % self.capacity
 
     def sample(self, batch_size):
+        if len(self.buffer) == 0:
+            raise ValueError("Cannot sample from an empty replay buffer.")
         idxs = np.random.choice(len(self.buffer), batch_size, replace=False)
         samples = [self.buffer[i] for i in idxs]
         states, actions, rewards, next_states, dones = zip(*samples)
@@ -173,7 +239,7 @@ class UniformReplayBuffer:
         # single-step DQN: nothing to flush
         pass
 
-    def save(self, path):
+    def save(self, path: str):
         state = {
             "buffer": self.buffer,
             "pos": self.pos,
@@ -181,10 +247,32 @@ class UniformReplayBuffer:
         with open(path, "wb") as f:
             pickle.dump(state, f)
 
-    def load(self, path):
+    def load(self, path: str):
         if not os.path.exists(path):
             return
         with open(path, "rb") as f:
             state = pickle.load(f)
         self.buffer = state["buffer"]
         self.pos = state["pos"]
+
+    # New helper methods for checkpoint compatibility
+    def save_to_bytes(self) -> bytes:
+        """
+        Return a bytes representation of the uniform buffer state suitable for embedding
+        into a checkpoint file.
+        """
+        state = {
+            "buffer": self.buffer,
+            "pos": self.pos,
+        }
+        return pickle.dumps(state)
+
+    def load_from_bytes(self, b: bytes):
+        """
+        Restore uniform buffer state from bytes produced by save_to_bytes.
+        """
+        if not b:
+            return
+        state = pickle.loads(b)
+        self.buffer = state.get("buffer", [])
+        self.pos = state.get("pos", 0)

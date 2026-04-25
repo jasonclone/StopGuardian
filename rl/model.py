@@ -5,7 +5,33 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from config import NOISY_SIGMA
+
+from config import (
+    DEVICE,
+    GAMMA,
+    N_STEPS,
+    BUFFER_SIZE,
+    BATCH_SIZE,
+    NOISY_SIGMA,
+    MIN_REPLAY_SIZE,
+    WARMUP_STEPS,
+    USE_EPSILON,
+    EPSILON_START,
+    EPSILON_END,
+    EPSILON_DECAY_STEPS,
+    ACTIONS,
+    NUM_ACTIONS,
+    PRIORITY_ALPHA,
+    PRIORITY_BETA_START,
+    PRIORITY_BETA_END,
+    TAU,
+    LEARNING_RATE,
+    CHECKPOINT_EVERY_EPISODES,
+    NUM_ATOMS,
+    V_MIN,
+    V_MAX,
+    DELTA_Z,
+)
 
 
 class NoisyLinear(nn.Module):
@@ -35,7 +61,7 @@ class NoisyLinear(nn.Module):
     def _f(x: torch.Tensor) -> torch.Tensor:
         return torch.sign(x) * torch.sqrt(torch.abs(x))
 
-    def reset_noise(self, device=None):
+    def reset_noise(self, device=DEVICE):
         """
         Reset factorized noise. If device is provided, create noise on that device.
         Otherwise infer device from parameters.
@@ -125,7 +151,7 @@ class RainbowDQN(nn.Module):
             batch = x.shape[0] if x is not None else 1
             return torch.zeros(batch, self.num_actions, device=next(self.parameters()).device)
 
-    def reset_noise(self, device=None):
+    def reset_noise(self, device=DEVICE):
         """
         Reset noise for all NoisyLinear layers.
         Accepts an optional device argument and forwards it to sublayers.
@@ -205,8 +231,7 @@ def _wrap_optimizer_with_scheduler(optimizer: optim.Optimizer, scheduler: optim.
     return optimizer
 
 
-def build_rainbow_model(state_size, num_actions, num_atoms, v_min, v_max, lr, device,
-                        lr_decay_steps: int = 200000, weight_decay: float = 1e-5):
+def build_rainbow_model(state_size,  lr_decay_steps, num_actions = NUM_ACTIONS, num_atoms = NUM_ATOMS, v_min = V_MIN, v_max = V_MAX, lr = LEARNING_RATE, device = DEVICE, weight_decay: float = 1e-5):
     """
     Build Rainbow model and optimizer.
     - Returns (model, optimizer) for backward compatibility.
@@ -221,9 +246,18 @@ def build_rainbow_model(state_size, num_actions, num_atoms, v_min, v_max, lr, de
     return model, optimizer
 
 
-def build_standard_model(state_size, num_actions, lr, device):
+def build_standard_model(state_size, lr_decay_steps, num_actions = NUM_ACTIONS, lr = LEARNING_RATE, device = DEVICE):
+    """
+    Build standard DQN model and optimizer.
+    - Returns (model, optimizer) for backward compatibility.
+    - Internally creates a linear-decay scheduler and auto-steps it after each optimizer.step().
+    - Scheduler is exposed as optimizer.scheduler for logging/checkpointing.
+    """
     model = DQN(state_size, num_actions).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
+    
+    scheduler = _make_linear_decay_scheduler(optimizer, lr_decay_steps)
+    optimizer = _wrap_optimizer_with_scheduler(optimizer, scheduler)
     return model, optimizer
 
 
@@ -244,7 +278,7 @@ def save_checkpoint(path, model, optimizer):
         print("save_checkpoint failed:", e)
 
 
-def load_checkpoint(path, model, optimizer, device=None):
+def load_checkpoint(path, model, optimizer, device=DEVICE):
     """
     Load model, optimizer, and scheduler state.
     After loading optimizer state, rewrap optimizer.step to restore scheduler wrapper.
@@ -273,7 +307,7 @@ if __name__ == "__main__":
     dummy_actions = 2
     dummy_atoms = 51
     model, opt = build_rainbow_model(
-        dummy_state, dummy_actions, dummy_atoms, -10, 10, lr=1e-3, device="cpu", lr_decay_steps=10
+        dummy_state, dummy_actions, dummy_atoms, -10, 10, lr=1e-3, device=DEVICE, lr_decay_steps=10
     )
     print("initial lr:", opt.param_groups[0]["lr"])
     for i in range(12):

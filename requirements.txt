@@ -1,6 +1,9 @@
 numpy
 pandas
 matplotlib
+plotly
+imageio
+kaleido
 torch==2.1.0
 torch-directml
 gymnasium

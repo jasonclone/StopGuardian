@@ -4,6 +4,34 @@ import numpy as np
 import torch
 
 
+
+from config import (
+    DEVICE,
+    GAMMA,
+    N_STEPS,
+    BUFFER_SIZE,
+    BATCH_SIZE,
+    NOISY_SIGMA,
+    MIN_REPLAY_SIZE,
+    WARMUP_STEPS,
+    USE_EPSILON,
+    EPSILON_START,
+    EPSILON_END,
+    EPSILON_DECAY_STEPS,
+    ACTIONS,
+    NUM_ACTIONS,
+    PRIORITY_ALPHA,
+    PRIORITY_BETA_START,
+    PRIORITY_BETA_END,
+    TAU,
+    LEARNING_RATE,
+    CHECKPOINT_EVERY_EPISODES,
+    NUM_ATOMS,
+    V_MIN,
+    V_MAX,
+    DELTA_Z,
+)
+
 # ================================================================
 # Distributional Projection (C51)
 # ================================================================
@@ -86,22 +114,22 @@ def train_step_rainbow(
     online_model,
     target_model,
     replay_buffer,
-    optimizer,
-    device,
-    batch_size,
-    min_replay_size,
-    gamma,
-    n_steps,
-    num_atoms,
-    v_min,
-    v_max,
-    delta_z,
     current_step_global,
-    priority_beta_start: float,
-    priority_beta_end: float,
-    total_updates: int,
+    optimizer,
+    total_updates,
     normalize_state_torch,
-    tau: float = 0.01,
+    device = DEVICE,
+    batch_size = BATCH_SIZE,
+    min_replay_size = MIN_REPLAY_SIZE,
+    gamma = GAMMA,
+    n_steps = N_STEPS,
+    num_atoms = NUM_ATOMS,
+    v_min = V_MIN,
+    v_max = V_MAX,
+    delta_z = DELTA_Z,
+    priority_beta_start = PRIORITY_BETA_START,
+    priority_beta_end = PRIORITY_BETA_END,
+    tau = TAU,
 ):
     """
     Learner for Rainbow DQN where NoisyNet sigma parameters are learned by the optimizer.
@@ -303,11 +331,11 @@ def train_step_standard(
     online_model,  # no target network (pure single dqn)
     replay_buffer,
     optimizer,
-    device,
-    batch_size,
-    min_replay_size,
-    gamma,
     normalize_state_torch,
+    device = DEVICE,
+    batch_size = BATCH_SIZE,
+    min_replay_size = MIN_REPLAY_SIZE,
+    gamma = GAMMA,
 ):
     try:
         if len(replay_buffer) < min_replay_size:

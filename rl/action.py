@@ -5,6 +5,35 @@ import torch
 import traci
 import logging
 
+
+from config import (
+    DEVICE,
+    GAMMA,
+    N_STEPS,
+    BUFFER_SIZE,
+    BATCH_SIZE,
+    NOISY_SIGMA,
+    MIN_REPLAY_SIZE,
+    WARMUP_STEPS,
+    USE_EPSILON,
+    EPSILON_START,
+    EPSILON_END,
+    EPSILON_DECAY_STEPS,
+    ACTIONS,
+    NUM_ACTIONS,
+    PRIORITY_ALPHA,
+    PRIORITY_BETA_START,
+    PRIORITY_BETA_END,
+    TAU,
+    LEARNING_RATE,
+    CHECKPOINT_EVERY_EPISODES,
+    NUM_ATOMS,
+    V_MIN,
+    V_MAX,
+    DELTA_Z,
+)
+
+
 # -----------------------
 # Logging configuration
 # -----------------------
@@ -35,16 +64,16 @@ def _safe_get_phase_and_state(tls_id):
     """
     try:
         phase = traci.trafficlight.getPhase(tls_id)
-    except Exception:
+    except Exception as e:
         logger.exception("getPhase failed for tls_id=%s", tls_id)
         return None, ""
     try:
         phase_state = traci.trafficlight.getRedYellowGreenState(tls_id)
-    except Exception:
+    except Exception as e:
         try:
             program = traci.trafficlight.getAllProgramLogics(tls_id)[0]
             phase_state = program.phases[phase].state
-        except Exception:
+        except Exception as e:
             logger.exception("Failed to obtain phase_state for tls_id=%s", tls_id)
             phase_state = ""
     return phase, phase_state
@@ -59,7 +88,7 @@ def apply_action_safe(action, env, current_step_global=None):
     try:
         program = traci.trafficlight.getAllProgramLogics(env.tls_id)[0]
         phase = traci.trafficlight.getPhase(env.tls_id)
-    except Exception:
+    except Exception as e:
         logger.exception("apply_action_safe: failed to query trafficlight for tls_id=%s", getattr(env, "tls_id", "UNKNOWN"))
         return
 
@@ -71,14 +100,14 @@ def apply_action_safe(action, env, current_step_global=None):
                         env.tls_id, phase, next_phase, current_step_global)
             try:
                 env.last_switch_step = current_step_global
-            except Exception:
+            except Exception as e:
                 env.last_switch_step = None
             try:
                 env.phase_start_step = (current_step_global + 1) if current_step_global is not None else None
                 env._last_phase_seen = next_phase
-            except Exception:
+            except Exception as e:
                 pass
-        except Exception:
+        except Exception as e:
             logger.exception("apply_action_safe: failed to setPhase for tls_id=%s to %s", env.tls_id, next_phase)
 
 
@@ -88,14 +117,14 @@ def select_action(
     global_step,
     mode,
     online_model,
-    device,
-    actions,
-    warmup_steps,
-    use_epsilon,
-    epsilon_start,
-    epsilon_end,
-    epsilon_decay_steps,
     normalize_state_torch,
+    device = DEVICE,
+    actions = ACTIONS,
+    warmup_steps = WARMUP_STEPS,
+    use_epsilon = False,
+    epsilon_start = EPSILON_START,
+    epsilon_end = EPSILON_END,
+    epsilon_decay_steps = EPSILON_DECAY_STEPS,
 ):
     """
     Decide action with enforcement:
@@ -116,7 +145,7 @@ def select_action(
         try:
             step_length = float(getattr(env, "step_length", 0.5))
             min_green_steps = max(1, int(round(MIN_GREEN_SECONDS / step_length)))
-        except Exception:
+        except Exception as e:
             logger.exception("select_action: failed to compute min_green_steps from seconds; falling back to MIN_GREEN_STEPS")
 
     # Initialize phase tracking only if both are missing
@@ -155,7 +184,7 @@ def select_action(
             if phase_state == "":
                 logger.debug("select_action: pre-enforcement blocked (UNKNOWN_PHASE_STATE) at step=%s tls=%s", global_step, env.tls_id)
                 return 0
-    except Exception:
+    except Exception as e:
         logger.exception("select_action: exception during pre-enforcement; defaulting to KEEP")
         return 0
 
@@ -169,7 +198,7 @@ def select_action(
                 program = traci.trafficlight.getAllProgramLogics(env.tls_id)[0]
                 cur_phase = traci.trafficlight.getPhase(env.tls_id)
                 max_steps = int(program.phases[cur_phase].duration * 2)
-            except Exception:
+            except Exception as e:
                 max_steps = 1
             if _warmup_current_phase != current_phase or _warmup_steps_left_in_phase <= 0:
                 _warmup_current_phase = current_phase
@@ -181,7 +210,7 @@ def select_action(
             try:
                 s_tensor = torch.tensor(state_raw, dtype=torch.float32, device=device).unsqueeze(0)
                 s_tensor = normalize_state_torch(s_tensor)
-            except Exception:
+            except Exception as e:
                 logger.exception("select_action: failed to prepare state tensor")
                 return 0
 
@@ -200,7 +229,7 @@ def select_action(
                 with torch.no_grad():
                     q_vals = online_model.q_values(s_tensor)[0]
                     requested_action = int(torch.argmax(q_vals).item())
-    except Exception:
+    except Exception as e:
         logger.exception("select_action: error computing requested_action; defaulting to KEEP")
         requested_action = 0
 
@@ -229,7 +258,7 @@ def select_action(
                 final_action = 0
             else:
                 final_action = requested_action
-    except Exception:
+    except Exception as e:
         logger.exception("select_action: exception during post-enforcement; defaulting to KEEP")
         final_action = 0
         blocked_reason = "ENFORCEMENT_EXCEPTION"
@@ -240,7 +269,8 @@ def select_action(
             "DECISION step=%s tls=%s cur_phase=%s phase_state=%s phase_start=%s requested=%s final=%s reason=%s",
             global_step, env.tls_id, current_phase, phase_state, env.phase_start_step, requested_action, final_action, blocked_reason
         )
-    except Exception:
+    except Exception as e:
         pass
 
     return final_action
+
