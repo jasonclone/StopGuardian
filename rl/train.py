@@ -169,6 +169,14 @@ def run():
     traci.close()
 
     online_model, target_model, replay_buffer, optimizer = init_models_and_replay(state_size=state_size)
+
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer,
+    mode='max',       # maximize cumulative reward
+    factor=0.5,       # cut LR in half
+    patience=5,       # wait 5 episodes with no improvement
+    min_lr=1e-6
+)
     
     print("Using device:", DEVICE)
     print("Model device:", next(online_model.parameters()).device)
@@ -385,7 +393,7 @@ def run():
                             # TensorBoard: training metrics
                             writer.add_scalar("train/loss", loss, total_grad_steps_global)
                             writer.add_scalar("train/beta", beta, total_grad_steps_global)
-                            writer.add_scalar("train/learning_rate", LEARNING_RATE, total_grad_steps_global)
+                            writer.add_scalar("train/learning_rate", optimizer.param_groups[0]["lr"], total_grad_steps_global)
                             writer.add_scalar("train/replay_size", len(replay_buffer), total_grad_steps_global)
 
                             # Optional: log weights/gradients every 1000 grad steps
@@ -479,7 +487,13 @@ def run():
             plot_metrics(episode_rows, PLOT_PATH, RUN_ID=RUN_ID)
 
             if ep_mode == "train" and episode_ok:
-                metric = cumulative_reward 
+                metric = cumulative_reward
+                scheduler.step(metric)
+
+                current_lr = optimizer.param_groups[0]["lr"]
+                print(f"  -> Current learning rate: {current_lr:.8f}") 
+
+
                 if best_metric is None or metric > best_metric:
                     best_metric = metric
                     torch.save(online_model.state_dict(), BEST_MODEL_PATH)
