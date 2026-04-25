@@ -12,21 +12,12 @@
   PEDESTRIAN WALKING SPEEDS (FHWA-HRT-05-100):
   https://www.fhwa.dot.gov/publications/research/safety/pedbike/05085/pptchapt8.cfm
 
-  NOTES:
-  - Applied Urban America tuning: car sigma reduced to 0.5, minGap to 2.0,
-    jmDriveAfterRedTime added for realistic aggressive behavior.
-  - Replaced high deterministic perHour/car bursts with per-second Poisson-like
-    probabilities for turning splits (straight/left/right).
-  - All flows spawn at edge start (departPos="0"), use departLane="best",
-    and departSpeed="random" for realistic entry speeds.
-  - Removed any attributes that are invalid for <vType> in SUMO schema.
 -->
-
 <routes
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd"
 >
-  <!-- VEHICLE TYPE DISTRIBUTION (unchanged) -->
+  <!-- VEHICLE TYPE DISTRIBUTION -->
   <vTypeDistribution id="vehDist">
     <vType
       id="car_sedan"
@@ -35,9 +26,9 @@
       accel="2.6"
       decel="4.5"
       maxSpeed="13.9"
-      sigma="0.5"
+      sigma="0"
       minGap="2.0"
-      speedDev="0.10"
+      speedDev="0"
       actionStepLength="0.5"
       lcStrategic="1.0"
       lcCooperative="0.5"
@@ -45,7 +36,6 @@
       lcKeepRight="0.7"
       probability="0.6000"
     />
-
     <vType
       id="car_suv"
       vClass="passenger"
@@ -53,9 +43,9 @@
       accel="2.0"
       decel="4.2"
       maxSpeed="12.5"
-      sigma="0.5"
+      sigma="0"
       minGap="2.2"
-      speedDev="0.08"
+      speedDev="0"
       actionStepLength="0.5"
       lcStrategic="1.0"
       lcCooperative="0.5"
@@ -63,7 +53,6 @@
       lcKeepRight="0.8"
       probability="0.2500"
     />
-
     <vType
       id="car_sport"
       vClass="passenger"
@@ -71,9 +60,9 @@
       accel="3.5"
       decel="5.0"
       maxSpeed="16.7"
-      sigma="0.5"
+      sigma="0"
       minGap="1.8"
-      speedDev="0.12"
+      speedDev="0"
       actionStepLength="0.5"
       lcStrategic="1.0"
       lcCooperative="0.5"
@@ -81,7 +70,6 @@
       lcKeepRight="0.5"
       probability="0.0612"
     />
-
     <vType
       id="truck"
       vClass="truck"
@@ -89,9 +77,9 @@
       accel="1.5"
       decel="3.5"
       maxSpeed="11.1"
-      sigma="0.7"
+      sigma="0"
       minGap="3.5"
-      speedDev="0.05"
+      speedDev="0"
       actionStepLength="0.5"
       lcStrategic="1.0"
       lcCooperative="0.2"
@@ -99,7 +87,6 @@
       lcKeepRight="0.9"
       probability="0.0772"
     />
-
     <vType
       id="bus"
       vClass="bus"
@@ -107,9 +94,9 @@
       accel="1.7"
       decel="3.5"
       maxSpeed="11.1"
-      sigma="0.7"
+      sigma="0"
       minGap="3.5"
-      speedDev="0.05"
+      speedDev="0"
       actionStepLength="0.5"
       lcStrategic="1.0"
       lcCooperative="0.3"
@@ -117,7 +104,6 @@
       lcKeepRight="0.8"
       probability="0.0052"
     />
-
     <vType
       id="moto"
       vClass="motorcycle"
@@ -125,9 +111,9 @@
       accel="3.5"
       decel="4.0"
       maxSpeed="16.7"
-      sigma="1.0"
+      sigma="0"
       minGap="1.0"
-      speedDev="0.15"
+      speedDev="0"
       actionStepLength="0.5"
       lcStrategic="1.0"
       lcCooperative="0.1"
@@ -135,7 +121,6 @@
       lcKeepRight="0.2"
       probability="0.0063"
     />
-
     <vType
       id="ev"
       vClass="emergency"
@@ -144,9 +129,9 @@
       decel="4.5"
       maxSpeed="22.2"
       speedFactor="1.6"
-      sigma="0.8"
+      sigma="0"
       minGap="1.5"
-      speedDev="0.20"
+      speedDev="0"
       actionStepLength="0.5"
       lcStrategic="1.0"
       lcCooperative="1.0"
@@ -165,431 +150,384 @@
     decel="2.5"
     maxSpeed="6.1"
     speedFactor="1.0"
-    speedDev="0.20"
-    sigma="0.5"
+    speedDev="0"
+    sigma="0"
     minGap="0.8"
-    lcStrategic="1.0"
-    lcCooperative="0.2"
-    lcKeepRight="0.6"
   />
-
   <vType
     id="ped"
     vClass="pedestrian"
     maxSpeed="1.2"
     speedFactor="1.0"
-    speedDev="0.15"
+    speedDev="0"
     impatience="0.5"
     jmCrossingGap="2.0"
-    jmIgnoreFoeProb="0.15"
-    jmIgnoreJunctionFoeProb="0.02"
+    jmIgnoreFoeProb="0"
+    jmIgnoreJunctionFoeProb="0"
   />
 
-  <!-- ========================= -->
-  <!-- WEST APPROACH (WC → … )   -->
-  <!-- ========================= -->
-
+  <!-- WEST APPROACH (WC → … ) -->
+  <!-- Approach total interpreted as 504 + 144 + 216 = 864 veh/hr.
+       Applied vehicle split (within requested ranges): Straight 80% (691.2/hr),
+       Left 12% (103.68/hr), Right 8% (69.12/hr). -->
   <flow
     id="car_WC_CE"
     type="vehDist"
     begin="0"
     end="100000"
-    vehsPerHour="504"
+    vehsPerHour="691.2"
     color="magenta"
     from="WC"
     to="CE"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="car_WC_CN"
     type="vehDist"
     begin="0"
     end="100000"
-    vehsPerHour="144"
+    vehsPerHour="103.68"
     color="magenta"
     from="WC"
     to="CN"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="car_WC_CS"
     type="vehDist"
     begin="0"
     end="100000"
-    vehsPerHour="216"
+    vehsPerHour="69.12"
     color="magenta"
     from="WC"
     to="CS"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
 
-  <!-- ========================= -->
-  <!-- SOUTH APPROACH (SC → … )  -->
-  <!-- ========================= -->
-
+  <!-- SOUTH APPROACH (SC → … ) -->
   <flow
     id="car_SC_CN"
     type="vehDist"
     begin="0"
     end="100000"
-    vehsPerHour="504"
+    vehsPerHour="691.2"
     color="green"
     from="SC"
     to="CN"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="car_SC_CE"
     type="vehDist"
     begin="0"
     end="100000"
-    vehsPerHour="144"
+    vehsPerHour="69.12"
     color="green"
     from="SC"
     to="CE"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="car_SC_CW"
     type="vehDist"
     begin="0"
     end="100000"
-    vehsPerHour="216"
+    vehsPerHour="103.68"
     color="green"
     from="SC"
     to="CW"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
 
-  <!-- ========================= -->
-  <!-- EAST APPROACH (EC → … )   -->
-  <!-- ========================= -->
-
+  <!-- EAST APPROACH (EC → … ) -->
   <flow
     id="car_EC_CW"
     type="vehDist"
     begin="0"
     end="100000"
-    vehsPerHour="504"
+    vehsPerHour="691.2"
     color="blue"
     from="EC"
     to="CW"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="car_EC_CS"
     type="vehDist"
     begin="0"
     end="100000"
-    vehsPerHour="144"
+    vehsPerHour="103.68"
     color="blue"
     from="EC"
     to="CS"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="car_EC_CN"
     type="vehDist"
     begin="0"
     end="100000"
-    vehsPerHour="216"
+    vehsPerHour="69.12"
     color="blue"
     from="EC"
     to="CN"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
 
-  <!-- ========================= -->
-  <!-- NORTH APPROACH (NC → … )  -->
-  <!-- ========================= -->
-
+  <!-- NORTH APPROACH (NC → … ) -->
   <flow
     id="car_NC_CW"
     type="vehDist"
     begin="0"
     end="100000"
-    vehsPerHour="504"
+    vehsPerHour="69.12"
     color="orange"
     from="NC"
     to="CW"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="car_NC_CS"
     type="vehDist"
     begin="0"
     end="100000"
-    vehsPerHour="144"
+    vehsPerHour="691.2"
     color="orange"
     from="NC"
     to="CS"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="car_NC_CE"
     type="vehDist"
     begin="0"
     end="100000"
-    vehsPerHour="216"
+    vehsPerHour="103.68"
     color="orange"
     from="NC"
     to="CE"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
 
-  <!-- ========================= -->
-  <!-- BIKE FLOWS (7.2/hr)       -->
-  <!-- ========================= -->
+  <!-- BIKE FLOWS (per-approach bike total 21.6/hr redistributed so left < right)
+       Applied bike split: Straight 85% (18.36/hr), Right 10% (2.16/hr), Left 5% (1.08/hr). -->
 
   <flow
     id="f_12"
     type="bike"
     begin="0"
     end="100000"
-    vehsPerHour="7.2"
+    vehsPerHour="18.36"
     color="magenta"
     from="WC"
     to="CE"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="f_13"
     type="bike"
     begin="0"
     end="100000"
-    vehsPerHour="7.2"
+    vehsPerHour="2.16"
     color="magenta"
     from="WC"
     to="CS"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="f_14"
     type="bike"
     begin="0"
     end="100000"
-    vehsPerHour="7.2"
+    vehsPerHour="1.08"
     color="magenta"
     from="WC"
     to="CN"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="f_15"
     type="bike"
     begin="0"
     end="100000"
-    vehsPerHour="7.2"
+    vehsPerHour="1.08"
     color="green"
     from="SC"
     to="CW"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="f_16"
     type="bike"
     begin="0"
     end="100000"
-    vehsPerHour="7.2"
+    vehsPerHour="18.36"
     color="green"
     from="SC"
     to="CN"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="f_17"
     type="bike"
     begin="0"
     end="100000"
-    vehsPerHour="7.2"
+    vehsPerHour="2.16"
     color="green"
     from="SC"
     to="CE"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="f_18"
     type="bike"
     begin="0"
     end="100000"
-    vehsPerHour="7.2"
+    vehsPerHour="1.08"
     color="blue"
     from="EC"
     to="CS"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="f_19"
     type="bike"
     begin="0"
     end="100000"
-    vehsPerHour="7.2"
+    vehsPerHour="2.16"
     color="blue"
     from="EC"
     to="CN"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="f_20"
     type="bike"
     begin="0"
     end="100000"
-    vehsPerHour="7.2"
+    vehsPerHour="18.36"
     color="blue"
     from="EC"
     to="CW"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="f_21"
     type="bike"
     begin="0"
     end="100000"
-    vehsPerHour="7.2"
+    vehsPerHour="18.36"
     color="orange"
     from="NC"
     to="CS"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="f_22"
     type="bike"
     begin="0"
     end="100000"
-    vehsPerHour="7.2"
+    vehsPerHour="1.08"
     color="orange"
     from="NC"
     to="CE"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
-
   <flow
     id="f_23"
     type="bike"
     begin="0"
     end="100000"
-    vehsPerHour="7.2"
+    vehsPerHour="2.16"
     color="orange"
     from="NC"
     to="CW"
     departPos="0"
     departLane="best"
-    departSpeed="random"
+    departSpeed="0"
   />
 
-  <!-- ========================= -->
-  <!-- PEDESTRIAN FLOWS (36/hr) -->
-  <!-- ========================= -->
-
-  <personFlow id="f_24" begin="0" end="100000" vehsPerHour="36" departPos="440">
+  <!-- PEDESTRIAN FLOWS (36 persons/hr each) -->
+  <personFlow id="f_24" begin="0" end="100000" personsPerHour="36" departPos="440">
     <walk from="WC" to="CE" />
   </personFlow>
-
-  <personFlow id="f_25" begin="0" end="100000" vehsPerHour="36" departPos="440">
+  <personFlow id="f_25" begin="0" end="100000" personsPerHour="36" departPos="440">
     <walk from="WC" to="CS" />
   </personFlow>
-
-  <personFlow id="f_26" begin="0" end="100000" vehsPerHour="36" departPos="440">
+  <personFlow id="f_26" begin="0" end="100000" personsPerHour="36" departPos="440">
     <walk from="WC" to="CN" />
   </personFlow>
-
-  <personFlow id="f_27" begin="0" end="100000" vehsPerHour="36" departPos="440">
+  <personFlow id="f_27" begin="0" end="100000" personsPerHour="36" departPos="440">
     <walk from="SC" to="CE" />
   </personFlow>
-
-  <personFlow id="f_28" begin="0" end="100000" vehsPerHour="36" departPos="440">
+  <personFlow id="f_28" begin="0" end="100000" personsPerHour="36" departPos="440">
     <walk from="SC" to="CN" />
   </personFlow>
-
-  <personFlow id="f_29" begin="0" end="100000" vehsPerHour="36" departPos="440">
+  <personFlow id="f_29" begin="0" end="100000" personsPerHour="36" departPos="440">
     <walk from="SC" to="CW" />
   </personFlow>
-
-  <personFlow id="f_30" begin="0" end="100000" vehsPerHour="36" departPos="440">
+  <personFlow id="f_30" begin="0" end="100000" personsPerHour="36" departPos="440">
     <walk from="EC" to="CS" />
   </personFlow>
-
-  <personFlow id="f_31" begin="0" end="100000" vehsPerHour="36" departPos="440">
+  <personFlow id="f_31" begin="0" end="100000" personsPerHour="36" departPos="440">
     <walk from="EC" to="CW" />
   </personFlow>
-
-  <personFlow id="f_32" begin="0" end="100000" vehsPerHour="36" departPos="440">
+  <personFlow id="f_32" begin="0" end="100000" personsPerHour="36" departPos="440">
     <walk from="EC" to="CN" />
   </personFlow>
-
-  <personFlow id="f_33" begin="0" end="100000" vehsPerHour="36" departPos="440">
+  <personFlow id="f_33" begin="0" end="100000" personsPerHour="36" departPos="440">
     <walk from="NC" to="CS" />
   </personFlow>
-
-  <personFlow id="f_34" begin="0" end="100000" vehsPerHour="36" departPos="440">
+  <personFlow id="f_34" begin="0" end="100000" personsPerHour="36" departPos="440">
     <walk from="NC" to="CE" />
   </personFlow>
-
-  <personFlow id="f_35" begin="0" end="100000" vehsPerHour="36" departPos="440">
+  <personFlow id="f_35" begin="0" end="100000" personsPerHour="36" departPos="440">
     <walk from="NC" to="CW" />
   </personFlow>
 </routes>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--simulation/sumo/test.sumocfg-->
-<!-- generated on 2026-03-06T22:16:48.012830-08:00 by Eclipse SUMO sumo 1.26.0
+
+<!-- generated on 2026-04-23T01:57:50.600170-08:00 by Eclipse SUMO sumo 1.26.0
 -->
 
 <sumoConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/sumoConfiguration.xsd">
@@ -14,10 +14,6 @@
         <begin value="0"/>
         <end value="100000"/>
         <step-length value="0.5"/>
-
-
-        <random value="true"/>
-
     </time>
 
 </sumoConfiguration>

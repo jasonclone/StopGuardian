@@ -1,36 +1,86 @@
 # rl/action.py
-
+import os
 import random
-import numpy as np
 import torch
 import traci
+import logging
+
+# -----------------------
+# Logging configuration
+# -----------------------
+LOG_PATH = os.path.join(os.path.dirname(__file__), "stopguardian_enforcement.log")
+logger = logging.getLogger("stopguardian_enforcement")
+if not logger.handlers:
+    logger.setLevel(logging.DEBUG)
+    fh = logging.FileHandler(LOG_PATH, mode="a", encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    fmt = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")
+    fh.setFormatter(fmt)
+    logger.addHandler(fh)
+
+# Warmup state
+_warmup_current_phase = None
+_warmup_steps_left_in_phase = 0
+
+# Minimum green (in environment steps)
+MIN_GREEN_STEPS = 10
+MIN_GREEN_SECONDS = None  # optional: set seconds and compute steps from env.step_length
 
 
-# ------------------------------------------------------------
-# Safe action switching
-# ------------------------------------------------------------
+def _safe_get_phase_and_state(tls_id):
+    """
+    Robustly return (phase_index, phase_state_string).
+    phase_state is the R/Y/G string (e.g., "GrGr" or "yryr").
+    Returns (None, "") on failure.
+    """
+    try:
+        phase = traci.trafficlight.getPhase(tls_id)
+    except Exception:
+        logger.exception("getPhase failed for tls_id=%s", tls_id)
+        return None, ""
+    try:
+        phase_state = traci.trafficlight.getRedYellowGreenState(tls_id)
+    except Exception:
+        try:
+            program = traci.trafficlight.getAllProgramLogics(tls_id)[0]
+            phase_state = program.phases[phase].state
+        except Exception:
+            logger.exception("Failed to obtain phase_state for tls_id=%s", tls_id)
+            phase_state = ""
+    return phase, phase_state
+
 
 def apply_action_safe(action, env, current_step_global=None):
+    """
+    Apply action and log. IMPORTANT: set env.phase_start_step to the
+    global_step value that the NEXT select_action() will receive.
+    Given loop ordering, that is current_step_global + 1.
+    """
+    try:
+        program = traci.trafficlight.getAllProgramLogics(env.tls_id)[0]
+        phase = traci.trafficlight.getPhase(env.tls_id)
+    except Exception:
+        logger.exception("apply_action_safe: failed to query trafficlight for tls_id=%s", getattr(env, "tls_id", "UNKNOWN"))
+        return
 
-    program = traci.trafficlight.getAllProgramLogics(env.tls_id)[0]
-    phase = traci.trafficlight.getPhase(env.tls_id)
-
-    # 3. Switch if action == 1
     if action == 1:
         next_phase = (phase + 1) % len(program.phases)
-        traci.trafficlight.setPhase(env.tls_id, next_phase)
-        env.last_switch_step = current_step_global
+        try:
+            traci.trafficlight.setPhase(env.tls_id, next_phase)
+            logger.info("apply_action_safe: SWITCH applied tls=%s from phase=%s to next=%s at step=%s",
+                        env.tls_id, phase, next_phase, current_step_global)
+            try:
+                env.last_switch_step = current_step_global
+            except Exception:
+                env.last_switch_step = None
+            try:
+                env.phase_start_step = (current_step_global + 1) if current_step_global is not None else None
+                env._last_phase_seen = next_phase
+            except Exception:
+                pass
+        except Exception:
+            logger.exception("apply_action_safe: failed to setPhase for tls_id=%s to %s", env.tls_id, next_phase)
 
-
-
-# ------------------------------------------------------------
-# Action selection raw state input
-# ------------------------------------------------------------
-
-
-# Warmup state (module-level globals)
-_warmup_current_phase = None # track current traffic signal phase index to allow realistic random durations per phase
-_warmup_steps_left_in_phase = 0 # countdown for how many steps to stay in current signal phase before allowing switch 
 
 def select_action(
     env,
@@ -47,63 +97,150 @@ def select_action(
     epsilon_decay_steps,
     normalize_state_torch,
 ):
+    """
+    Decide action with enforcement:
+      - Run enforcement checks BEFORE any model forward pass so the agent's model
+        is not invoked when switching is impossible.
+      - Warmup behavior remains allowed to attempt switches, but warmup choices
+        are still subject to the same enforcement (they can be overridden).
+      - Only prepare tensors / call the model when enforcement allows non-warmup decisions.
+    """
     global _warmup_current_phase, _warmup_steps_left_in_phase
 
-    # -------------------------
-    # 1. Convert to tensor (GPU)
-    # -------------------------
-    s_tensor = torch.tensor(state_raw, dtype=torch.float32, device=device).unsqueeze(0)
+    # Get phase and state robustly (cheap, used for pre-enforcement)
+    current_phase, phase_state = _safe_get_phase_and_state(env.tls_id)
 
-    # -------------------------
-    # 2. Normalize ON GPU
-    # -------------------------
-    s_tensor = normalize_state_torch(s_tensor)
+    # Compute min_green_steps from seconds if configured
+    min_green_steps = MIN_GREEN_STEPS
+    if MIN_GREEN_SECONDS is not None:
+        try:
+            step_length = float(getattr(env, "step_length", 0.5))
+            min_green_steps = max(1, int(round(MIN_GREEN_SECONDS / step_length)))
+        except Exception:
+            logger.exception("select_action: failed to compute min_green_steps from seconds; falling back to MIN_GREEN_STEPS")
 
-    # -------------------------
-    # 3. Warmup (realistic random phase durations)
-    # -------------------------
-    if mode == "train" and global_step < warmup_steps:
-        program = traci.trafficlight.getAllProgramLogics(env.tls_id)[0]
-        current_phase = traci.trafficlight.getPhase(env.tls_id)
+    # Initialize phase tracking only if both are missing
+    if getattr(env, "phase_start_step", None) is None and getattr(env, "_last_phase_seen", None) is None:
+        if current_phase is not None:
+            env.phase_start_step = global_step
+            env._last_phase_seen = current_phase
+            logger.debug("select_action: initialized phase_start_step=%s _last_phase_seen=%s (global_step=%s)",
+                         env.phase_start_step, env._last_phase_seen, global_step)
 
-        # SUMO phase duration is in seconds → convert to 0.5s steps
-        max_steps = int(program.phases[current_phase].duration * 2)
+    # If phase changed according to SUMO, update _last_phase_seen but do NOT overwrite phase_start_step
+    if current_phase is not None and env._last_phase_seen != current_phase:
+        logger.debug("select_action: observed phase change from %s to %s at global_step=%s (phase_start=%s)",
+                     env._last_phase_seen, current_phase, global_step, env.phase_start_step)
+        env._last_phase_seen = current_phase
 
-        # If entering a new phase OR countdown expired → sample new duration
-        if _warmup_current_phase != current_phase or _warmup_steps_left_in_phase <= 0:
-            _warmup_current_phase = current_phase
-            _warmup_steps_left_in_phase = random.randint(1, max_steps) # sample random duration for current phase (at least 1 steps, at most max_steps)
+    # Pre-enforcement: block non-warmup agent computation early
+    try:
+        in_warmup = (mode == "train" and global_step < warmup_steps)
 
-        # Count down
-        _warmup_steps_left_in_phase -= 1
+        # If NOT in warmup, enforce restrictions immediately and return KEEP (0)
+        if not in_warmup:
+            if phase_state and ("y" in phase_state or "Y" in phase_state):
+                logger.debug("select_action: pre-enforcement blocked (YELLOW) at step=%s tls=%s", global_step, env.tls_id)
+                return 0
+            if phase_state and ("G" in phase_state or "g" in phase_state):
+                if env.phase_start_step is not None:
+                    steps_since_green = global_step - env.phase_start_step
+                    if steps_since_green < min_green_steps:
+                        logger.debug("select_action: pre-enforcement blocked (MIN_GREEN since=%s < %s) at step=%s tls=%s",
+                                     steps_since_green, min_green_steps, global_step, env.tls_id)
+                        return 0
+                else:
+                    logger.debug("select_action: pre-enforcement blocked (NO_PHASE_START_STEP) at step=%s tls=%s", global_step, env.tls_id)
+                    return 0
+            if phase_state == "":
+                logger.debug("select_action: pre-enforcement blocked (UNKNOWN_PHASE_STATE) at step=%s tls=%s", global_step, env.tls_id)
+                return 0
+    except Exception:
+        logger.exception("select_action: exception during pre-enforcement; defaulting to KEEP")
+        return 0
 
-        # KEEP until countdown ends
-        if _warmup_steps_left_in_phase > 0:
-            return 0  # KEEP
+    # Decide requested action
+    requested_action = 0
+    try:
+        # Warmup: keep existing warmup behavior (allowed to attempt switches),
+        # but we will still apply enforcement after warmup choice.
+        if mode == "train" and global_step < warmup_steps:
+            try:
+                program = traci.trafficlight.getAllProgramLogics(env.tls_id)[0]
+                cur_phase = traci.trafficlight.getPhase(env.tls_id)
+                max_steps = int(program.phases[cur_phase].duration * 2)
+            except Exception:
+                max_steps = 1
+            if _warmup_current_phase != current_phase or _warmup_steps_left_in_phase <= 0:
+                _warmup_current_phase = current_phase
+                _warmup_steps_left_in_phase = random.randint(1, max(1, max_steps))
+            _warmup_steps_left_in_phase -= 1
+            requested_action = 0 if _warmup_steps_left_in_phase > 0 else 1
+        else:
+            # Non-warmup: model / epsilon decision (we only reach here if pre-enforcement allowed it)
+            try:
+                s_tensor = torch.tensor(state_raw, dtype=torch.float32, device=device).unsqueeze(0)
+                s_tensor = normalize_state_torch(s_tensor)
+            except Exception:
+                logger.exception("select_action: failed to prepare state tensor")
+                return 0
 
-        # Then NEXT
-        return 1
+            if mode == "train" and use_epsilon:
+                eps = max(
+                    epsilon_end,
+                    epsilon_start - (epsilon_start - epsilon_end) * global_step / epsilon_decay_steps,
+                )
+                if random.random() < eps:
+                    requested_action = random.choice(actions)
+                else:
+                    with torch.no_grad():
+                        q_vals = online_model.q_values(s_tensor)[0]
+                        requested_action = int(torch.argmax(q_vals).item())
+            else:
+                with torch.no_grad():
+                    q_vals = online_model.q_values(s_tensor)[0]
+                    requested_action = int(torch.argmax(q_vals).item())
+    except Exception:
+        logger.exception("select_action: error computing requested_action; defaulting to KEEP")
+        requested_action = 0
 
-    # -------------------------
-    # 4. Epsilon-greedy
-    # -------------------------
-    if mode == "train" and use_epsilon:
-        eps = max(
-            epsilon_end,
-            epsilon_start - (epsilon_start - epsilon_end) * global_step / epsilon_decay_steps,
+    # Post-enforcement: ensure warmup attempts are still subject to restrictions
+    blocked_reason = None
+    final_action = requested_action
+    try:
+        # If phase is yellow -> block
+        if phase_state and ("y" in phase_state or "Y" in phase_state):
+            blocked_reason = "YELLOW_PHASE"
+            final_action = 0
+        elif phase_state and ("G" in phase_state or "g" in phase_state):
+            if env.phase_start_step is not None:
+                steps_since_green = global_step - env.phase_start_step
+                if steps_since_green < min_green_steps:
+                    blocked_reason = f"MIN_GREEN (since={steps_since_green} < {min_green_steps})"
+                    final_action = 0
+                else:
+                    final_action = requested_action
+            else:
+                blocked_reason = "NO_PHASE_START_STEP"
+                final_action = 0
+        else:
+            if phase_state == "":
+                blocked_reason = "UNKNOWN_PHASE_STATE"
+                final_action = 0
+            else:
+                final_action = requested_action
+    except Exception:
+        logger.exception("select_action: exception during post-enforcement; defaulting to KEEP")
+        final_action = 0
+        blocked_reason = "ENFORCEMENT_EXCEPTION"
+
+    # Log the decision
+    try:
+        logger.info(
+            "DECISION step=%s tls=%s cur_phase=%s phase_state=%s phase_start=%s requested=%s final=%s reason=%s",
+            global_step, env.tls_id, current_phase, phase_state, env.phase_start_step, requested_action, final_action, blocked_reason
         )
-        if random.random() < eps:
-            return random.choice(actions)
+    except Exception:
+        pass
 
-    # -------------------------
-    # 5. Forward pass (GPU)
-    # -------------------------
-    if mode == "eval":
-        online_model.eval()
-    else:
-        online_model.train()
-
-    with torch.no_grad():
-        q_vals = online_model.q_values(s_tensor)[0]
-
-    return int(torch.argmax(q_vals).item())
+    return final_action
