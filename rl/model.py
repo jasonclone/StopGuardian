@@ -216,8 +216,10 @@ def build_rainbow_model(state_size, num_actions, num_atoms, v_min, v_max, lr, de
     model = RainbowDQN(state_size, num_actions, num_atoms, v_min, v_max).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
-    scheduler = _make_linear_decay_scheduler(optimizer, lr_decay_steps)
-    optimizer = _wrap_optimizer_with_scheduler(optimizer, scheduler)
+    if lr_decay_steps is not None:
+        scheduler = _make_linear_decay_scheduler(optimizer, lr_decay_steps)
+        optimizer = _wrap_optimizer_with_scheduler(optimizer, scheduler)
+
     return model, optimizer
 
 
