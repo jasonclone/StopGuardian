@@ -28,6 +28,13 @@ PRIORITY_BETA_END =  0.95
 NOISY_SIGMA = 0.1
 LEARNING_RATE =  2.25e-05
 
+#-----------------------Learning Rate Scheduler-------------
+SCHEDULER_TYPE = "linear"
+
+PLATEAU_FACTOR = 0.5
+PLATEAU_PATIENCE = 5
+PLATEAU_MIN_LR = 1e-6
+
 
 CHECKPOINT_EVERY_EPISODES = 1
 
