@@ -270,6 +270,7 @@ def run_single_seed(
 
         # Tensorboard writer per-seed (if available)
         tb_dir = os.path.join(seed_run_dir, "tb")
+        ensure_dir(tb_dir)
         try:
             from torch.utils.tensorboard import SummaryWriter
             writer = SummaryWriter(log_dir=tb_dir)

@@ -1,8 +1,16 @@
 # rl/config.py
-import torch_directml  # DirectML
 
-DEVICE = torch_directml.device()
+import torch
+import os
 
+# Detect if running inside Docker
+RUNNING_IN_DOCKER = os.path.exists("/.dockerenv")
+
+if RUNNING_IN_DOCKER:
+    DEVICE = torch.device("cpu")
+else:
+    import torch_directml
+    DEVICE = torch_directml.device()
 
 # {
 #   "LEARNING_RATE": 5.4574868250588074e-05,

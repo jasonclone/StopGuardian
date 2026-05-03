@@ -22,6 +22,10 @@ Make sure container is running via Docker Desktop. This will build the Docker im
 <...\StopGuardian> docker build -t stopguardian .
 <...\StopGuardian> docker run --rm -it stopguardian
 
+docker run --rm -it stopguardian python3 rl/train.py
+
+docker run --rm -it -v .:/app stopguardian python3 rl/train.py
+
 
 ** to run the default sumo simulation manually on gui
 <...\StopGuardian> sumo-gui -c simulation/sumo/test.sumocfg

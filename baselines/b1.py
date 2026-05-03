@@ -24,8 +24,8 @@ from traffic_env import TrafficEnv, make_sumo_config, save_step_csv, save_episod
 # ================================================================
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--episodes", type=int, default=10)
-parser.add_argument("--steps_per_episode", type=int, default=1000)
+parser.add_argument("--episodes", type=int, default=1)
+parser.add_argument("--steps_per_episode", type=int, default=100)
 parser.add_argument("--run_id", type=str, default="b1")
 args = parser.parse_args()
 
