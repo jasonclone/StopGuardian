@@ -1,0 +1,47 @@
+{
+  "run_id": "rl",
+  "models": {
+    "rainbow": {
+      "num_seeds": 1,
+      "metrics": {
+        "final_mean_reward": -292.9799999999997,
+        "final_reward_ci_lower": -292.9799999999997,
+        "final_reward_ci_upper": -292.9799999999997,
+        "mean_episode_length": 1000.0,
+        "length_ci_lower": 1000.0,
+        "length_ci_upper": 1000.0,
+        "sample_eff_median": 100000,
+        "sample_eff_mean": 100000.0,
+        "num_seeds": 1
+      },
+      "files": {
+        "episode_csvs": [
+          "results\\rl\\rainbow\\seed_42\\rl_episode_metrics.csv"
+        ]
+      }
+    },
+    "standard": {
+      "num_seeds": 1,
+      "metrics": {
+        "final_mean_reward": -232.45499999999987,
+        "final_reward_ci_lower": -232.45499999999987,
+        "final_reward_ci_upper": -232.45499999999987,
+        "mean_episode_length": 1000.0,
+        "length_ci_lower": 1000.0,
+        "length_ci_upper": 1000.0,
+        "sample_eff_median": 100000,
+        "sample_eff_mean": 100000.0,
+        "num_seeds": 1
+      },
+      "files": {
+        "episode_csvs": [
+          "results\\rl\\standard\\seed_42\\rl_episode_metrics.csv"
+        ]
+      }
+    }
+  },
+  "notes": [
+    "Video not created for results\\rl\\rainbow\\seed_42: Model builder failed: empty(): argument 'size' failed to unpack the object at pos 2 with error \"type must be tuple of ints,but got NoneType\"",
+    "Video not created for results\\rl\\standard\\seed_42: Model builder failed: empty(): argument 'size' failed to unpack the object at pos 2 with error \"type must be tuple of ints,but got NoneType\""
+  ]
+}

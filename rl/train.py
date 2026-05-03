@@ -197,13 +197,12 @@ def mean_confidence_interval(data: List[float], confidence: float = 0.95) -> Tup
     return float(m), float(m - h), float(m + h)
 
 # ================================================================
-# Main single-seed run (refactored, eval/sample-efficiency fixes)
+# Main single-seed run
 # ================================================================
 def run_single_seed(
     seed: int,
     seed_run_dir: str,
     model_type: str,
-    mode: str,
     num_episodes: int,
     steps_per_episode: int,
     performance_threshold: float = None,
@@ -213,7 +212,7 @@ def run_single_seed(
     Runs training/eval for a single seed and returns a dictionary with:
     - 'episode_rows': list of per-episode dicts
     - 'step_rows': list of per-step dicts
-    - 'sample_efficiency_step': first global step where eval mean >= threshold (or None)
+    - 'sample_efficiency_step': first global step where training episode mean >= threshold (or None)
     - 'seed': seed
     """
     # ensure seed directory exists
@@ -287,13 +286,14 @@ def run_single_seed(
         best_metric = None
         sample_efficiency_step = None
 
+        # 80-20 training and evaluation episode ratio
         TRAIN_EPISODES = max(1, int(num_episodes * 0.8))
         EVAL_EPISODES = num_episodes - TRAIN_EPISODES
 
-        # ensure sliding_window is sensible
+        # ensure sliding_window is at least 1 and at most the number of training episodes
         SLIDING_WINDOW = max(1, int(sliding_window))
 
-        print(f"\n=== Starting seed={seed} (model= {model_type.upper()} | mode= {mode.upper()} | seed_dir={seed_run_dir}) ===")
+        print(f"\n=== Starting seed={seed} (model= {model_type.upper()} | seed_dir={seed_run_dir}) ===")
         print(f"Episodes: {num_episodes} (Train: {TRAIN_EPISODES}, Eval: {EVAL_EPISODES}), Steps per episode: {steps_per_episode}")
 
         try:
@@ -301,17 +301,20 @@ def run_single_seed(
                 # record episode start step explicitly for correct attribution later
                 episode_start_step = total_steps_global
 
-                if mode == "train":
-                    ep_mode = "train" if ep < TRAIN_EPISODES else "eval"
-                else:
-                    ep_mode = mode
+                # 80-20 training and evaluation episode ratio
+                ep_mode = "train" if ep < TRAIN_EPISODES else "eval"
 
                 # Ensure model is in the correct PyTorch mode for train/eval episodes
+                #* for rainbow dqn disable noisynets for eval since we want fully deterministic behavior but enable for training
                 try:
                     if ep_mode == "eval":
                         online_model.eval()
+                        if(model_type == "rainbow"):
+                            online_model.disable_noise()
                     else:
                         online_model.train()
+                        if(model_type == "rainbow"):
+                            online_model.enable_noise()
                 except Exception as e:
                     print("Exception", e)
                     pass
@@ -469,6 +472,7 @@ def run_single_seed(
                         print("Exception", e)
                         pass
 
+                # only flush replay buffer during training episodes
                 if ep_mode == "train":
                     try:
                         replay_buffer.flush()
@@ -520,7 +524,7 @@ def run_single_seed(
                     # non-fatal plotting error
                     log_exception(log_dir, "plot_metrics", e)
 
-                # Save best model and last model
+                # Save best model and last model (and only during training episodes, since in eval it is redundant to since learning has already ended)
                 if ep_mode == "train" and episode_ok:
                     metric = cumulative_reward
                     if best_metric is None or metric > best_metric:
@@ -550,27 +554,27 @@ def run_single_seed(
                             except Exception as e2:
                                 log_exception(log_dir, "replay_save", e2)
 
-                # If we are in evaluation episodes and a performance threshold is provided,
-                # check sample efficiency: first global step where mean eval reward over a recent sliding window >= threshold.
-                if performance_threshold is not None and ep_mode == "eval":
+                #* If we are in training episodes and a performance threshold is provided,
+                #* check sample efficiency: first global step where mean training reward over a recent sliding window >= threshold.
+                if performance_threshold is not None and ep_mode == "train":
                     try:
-                        eval_rewards_all = [r["cumulative_reward"] for r in episode_rows if r["mode"] == "eval"]
-                        if eval_rewards_all:
-                            window_size = min(SLIDING_WINDOW, len(eval_rewards_all))
-                            recent_rewards = eval_rewards_all[-window_size:]
-                            mean_eval = float(np.mean(recent_rewards))
-                            eval_start_step = int(max(0, episode_start_step))
-                            if sample_efficiency_step is None and mean_eval >= performance_threshold:
-                                sample_efficiency_step = eval_start_step
+                        rewards_all = [r["cumulative_reward"] for r in episode_rows if r["mode"] == "train"]
+                        if rewards_all:
+                            window_size = min(SLIDING_WINDOW, len(rewards_all))
+                            recent_rewards = rewards_all[-window_size:]
+                            mean = float(np.mean(recent_rewards))
+                            start_step = int(max(0, episode_start_step))
+                            if sample_efficiency_step is None and mean >= performance_threshold:
+                                sample_efficiency_step = start_step
                                 # persist immediately for robustness
                                 try:
                                     with open(SAMPLE_EFF_CSV, "w", newline="") as f:
                                         w = csv.writer(f)
-                                        w.writerow(["seed", "sample_efficiency_step", "mean_eval", "window_size"])
-                                        w.writerow([seed, sample_efficiency_step, mean_eval, window_size])
+                                        w.writerow(["seed", "sample_efficiency_step", "mean", "window_size"])
+                                        w.writerow([seed, sample_efficiency_step, mean, window_size])
                                 except Exception as e:
                                     log_exception(log_dir, "write_sample_eff_seed", e)
-                                print(f"[Seed {seed}] Sample efficiency reached at global step {sample_efficiency_step} (mean_eval={mean_eval:.3f} over last {window_size} evals)")
+                                print(f"[Seed {seed}] Sample efficiency reached at global step {sample_efficiency_step} (mean={mean:.3f} over last {window_size} training episodes)")
                     except Exception as e:
                         log_exception(log_dir, f"sample_eff_check_seed_{seed}_ep_{ep}", e)
 
@@ -619,7 +623,6 @@ def run_multi_seed(
     seeds: List[int],
     base_model_dir: str,
     model_type: str,
-    mode: str,
     num_episodes: int,
     steps_per_episode: int,
     performance_threshold: float = None,
@@ -639,7 +642,6 @@ def run_multi_seed(
                 seed=seed,
                 seed_run_dir=seed_dir,
                 model_type=model_type,
-                mode=mode,
                 num_episodes=num_episodes,
                 steps_per_episode=steps_per_episode,
                 performance_threshold=performance_threshold,
@@ -771,19 +773,17 @@ def run_multi_seed(
 # CLI
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", type=str, default="train", choices=["train", "eval", "infer"])
     parser.add_argument("--run_id", type=str, default="rl")
-    parser.add_argument("--episodes", type=int, default=200)
+    parser.add_argument("--episodes", type=int, default=125)
     parser.add_argument("--steps_per_episode", type=int, default=1000)
-    parser.add_argument("--model", type=str, default="rainbow", choices=["rainbow", "standard"])
-    parser.add_argument("--seeds", type=str, default="42,43", help="Comma-separated list of integer seeds, e.g. 42,43,44")
+    parser.add_argument("--model", type=str, default="standard", choices=["rainbow", "standard"])
+    parser.add_argument("--seeds", type=str, default="42", help="Comma-separated list of integer seeds, e.g. 42,43,44")
     parser.add_argument("--results_dir", type=str, default="results", help="Base results directory")
-    parser.add_argument("--performance_threshold", type=float, default=-400, help="performance threshold for sample efficiency (mean eval reward)")
-    parser.add_argument("--eval_window", type=int, default=5, help="Sliding window size (number of recent eval episodes) used to compute mean for sample efficiency detection")
+    parser.add_argument("--se_performance_threshold", type=float, default=-350, help="performance threshold for sample efficiency (mean training reward)")
+    parser.add_argument("--se_training_window", type=int, default=5, help="Sliding window size (number of recent training episodes) used to compute mean for sample efficiency detection")
     args = parser.parse_args()
 
     MODEL = args.model
-    MODE = args.mode
     RUN_ID = args.run_id
     NUM_EPISODES = args.episodes
     STEPS_PER_EPISODE = args.steps_per_episode
@@ -801,11 +801,10 @@ if __name__ == "__main__":
             seeds=seeds,
             base_model_dir=base_run_dir,
             model_type=MODEL,
-            mode=MODE,
             num_episodes=NUM_EPISODES,
             steps_per_episode=STEPS_PER_EPISODE,
-            performance_threshold=args.performance_threshold,
-            sliding_window=args.eval_window,
+            performance_threshold=args.se_performance_threshold,
+            sliding_window=args.se_training_window,
         )
     except Exception as e:
         log_exception(base_run_dir, "run_multi_seed_top_level", e)

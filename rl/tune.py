@@ -181,7 +181,7 @@ def train_wrapper(config: Dict[str, Any]) -> None:
             pass
 
     # Trial-level defaults (kept outside search space)
-    MAX_EPISODES = int(config.get("MAX_EPISODES", 12))
+    MAX_EPISODES = int(config.get("MAX_EPISODES", 50))
     STEPS_PER_EPISODE = int(config.get("STEPS_PER_EPISODE", 1000))
 
     # Compute lr decay steps for scheduler (must be positive int)
@@ -295,16 +295,16 @@ def train_wrapper(config: Dict[str, Any]) -> None:
                             target_model=target_model,
                             replay_buffer=replay_buffer,
                             optimizer=optimizer,
-                            batch_size=int(config.get("BATCH_SIZE", 64)),
+                            batch_size=int(config.get("BATCH_SIZE", 256)),
                             min_replay_size=int(MIN_REPLAY_SIZE),
                             gamma=float(config.get("GAMMA", 0.99)),
-                            n_steps=int(config.get("N_STEPS", 3)),
+                            n_steps=int(config.get("N_STEPS", 20)),
                             v_min=float(config.get("V_MIN", -80.0)),
                             v_max=float(config.get("V_MAX", 0.0)),
                             delta_z=(float(config.get("V_MAX", 0.0)) - float(config.get("V_MIN", -80.0))) / (int(NUM_ATOMS) - 1),
                             current_step_global=t,
                             priority_beta_start=float(config.get("PRIORITY_BETA_START", 0.4)),
-                            priority_beta_end=float(config.get("PRIORITY_BETA_END", 0.9)),
+                            priority_beta_end=float(config.get("PRIORITY_BETA_END", 1.0)),
                             total_updates=total_updates,
                             normalize_state_torch=env.normalize_state_torch,
                             tau=float(config.get("TAU", tau)),
@@ -314,7 +314,7 @@ def train_wrapper(config: Dict[str, Any]) -> None:
                             online_model=online_model,
                             replay_buffer=replay_buffer,
                             optimizer=optimizer,
-                            batch_size=int(config.get("BATCH_SIZE", 64)),
+                            batch_size=int(config.get("BATCH_SIZE", 256)),
                             min_replay_size=int(MIN_REPLAY_SIZE),
                             gamma=float(config.get("GAMMA", 0.99)),
                             normalize_state_torch=env.normalize_state_torch,
@@ -420,12 +420,10 @@ def train_wrapper(config: Dict[str, Any]) -> None:
 # SEARCH SPACE (exactly the keys requested)
 # -------------------------
 search_space = {
-    "LEARNING_RATE": tune.loguniform(1e-4, 1e-3),
-    "GAMMA": tune.uniform(0.95, 0.99),
-    "N_STEPS": tune.choice([3, 5, 7]),
-    "BATCH_SIZE": tune.choice([32, 64, 128, 256]),
-    "NOISY_SIGMA": tune.uniform(0.1, 0.5),
-    "TAU": tune.loguniform(1e-4, 1e-1),
+    "LEARNING_RATE": tune.loguniform(1e-6, 1e-4),
+    "GAMMA": tune.uniform(0.98, 0.999),
+    "BATCH_SIZE": tune.choice([128, 256]),
+    "TAU": tune.loguniform(5e-4, 5e-3),
 }
 
 # -------------------------
@@ -792,7 +790,7 @@ def main():
         tune_config=tune.TuneConfig(
             search_alg=optuna_search,
             scheduler=scheduler,
-            num_samples=100,
+            num_samples=150,
         ),
         run_config=RunConfig(
             name=run_name,
@@ -857,7 +855,7 @@ def main():
         "tuning_start_epoch": tuning_start,
         "tuning_end_epoch": tuning_end,
         "wall_clock_seconds": tuning_end - tuning_start,
-        "num_samples": 3,
+        "num_samples": 500,
         "num_trials_recorded": num_trials_recorded,
         "artifacts": artifacts,
     }

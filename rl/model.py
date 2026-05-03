@@ -56,10 +56,18 @@ class NoisyLinear(nn.Module):
 
         self.register_buffer("weight_epsilon", torch.zeros(out_features, in_features))
         self.register_buffer("bias_epsilon", torch.zeros(out_features))
+        
+        self.noise_enabled = True
 
     @staticmethod
     def _f(x: torch.Tensor) -> torch.Tensor:
         return torch.sign(x) * torch.sqrt(torch.abs(x))
+
+    def disable_noise(self):
+        self.noise_enabled = False
+
+    def enable_noise(self):
+        self.noise_enabled = True
 
     def reset_noise(self, device=DEVICE):
         """
@@ -81,7 +89,7 @@ class NoisyLinear(nn.Module):
 
     def forward(self, x):
         try:
-            if self.training:
+            if self.training and self.noise_enabled:
                 # explicit scalar checks to avoid ambiguous tensor->bool conversion
                 if self.weight_epsilon.abs().sum().item() == 0 and self.bias_epsilon.abs().sum().item() == 0:
                     # ensure noise is created on the same device as the input
@@ -150,6 +158,20 @@ class RainbowDQN(nn.Module):
             # fallback: zeros
             batch = x.shape[0] if x is not None else 1
             return torch.zeros(batch, self.num_actions, device=next(self.parameters()).device)
+        
+    
+    def disable_noise(self):
+        self.v_noisy1.disable_noise()
+        self.v_noisy2.disable_noise()
+        self.a_noisy1.disable_noise()
+        self.a_noisy2.disable_noise()
+
+    def enable_noise(self):
+        self.v_noisy1.enable_noise()
+        self.v_noisy2.enable_noise()
+        self.a_noisy1.enable_noise()
+        self.a_noisy2.enable_noise()
+
 
     def reset_noise(self, device=DEVICE):
         """
@@ -239,7 +261,7 @@ def build_rainbow_model(state_size,  lr_decay_steps, num_actions = NUM_ACTIONS, 
     - Scheduler is exposed as optimizer.scheduler for logging/checkpointing.
     """
     model = RainbowDQN(state_size, num_actions, num_atoms, v_min, v_max).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer = optim.Adam(model.parameters(), lr=lr, eps=1.5e-4, weight_decay=weight_decay)
 
     scheduler = _make_linear_decay_scheduler(optimizer, lr_decay_steps)
     optimizer = _wrap_optimizer_with_scheduler(optimizer, scheduler)
@@ -254,7 +276,7 @@ def build_standard_model(state_size, lr_decay_steps, num_actions = NUM_ACTIONS, 
     - Scheduler is exposed as optimizer.scheduler for logging/checkpointing.
     """
     model = DQN(state_size, num_actions).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    optimizer = optim.Adam(model.parameters(), lr=lr, eps=1.5e-4)
     
     scheduler = _make_linear_decay_scheduler(optimizer, lr_decay_steps)
     optimizer = _wrap_optimizer_with_scheduler(optimizer, scheduler)

@@ -396,14 +396,14 @@ class TrafficEnv:
             veh_total = float(sum(veh_vals))
             veh_norm = veh_total / (self.MAX_VEH_QUEUE)
             ped_norm = float(ped_q) / (self.MAX_PED_QUEUE)
-            current_congestion = veh_norm + ped_norm
+            current_congestion = veh_norm + 0.3 * ped_norm
 
             if prev_state is not None:
                 *prev_veh_vals, prev_ped_q, prev_phase = prev_state
                 prev_veh_total = float(sum(prev_veh_vals))
                 prev_veh_norm = prev_veh_total / (self.MAX_VEH_QUEUE)
                 prev_ped_norm = float(prev_ped_q) / (self.MAX_PED_QUEUE)
-                prev_congestion = prev_veh_norm + prev_ped_norm
+                prev_congestion = prev_veh_norm + 0.3 * prev_ped_norm
             else:
                 prev_congestion = current_congestion
 
