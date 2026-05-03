@@ -181,7 +181,7 @@ def train_wrapper(config: Dict[str, Any]) -> None:
             pass
 
     # Trial-level defaults (kept outside search space)
-    MAX_EPISODES = int(config.get("MAX_EPISODES", 50))
+    MAX_EPISODES = int(config.get("MAX_EPISODES", 20))
     STEPS_PER_EPISODE = int(config.get("STEPS_PER_EPISODE", 1000))
 
     # Compute lr decay steps for scheduler (must be positive int)

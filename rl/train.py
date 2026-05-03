@@ -779,7 +779,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default="standard", choices=["rainbow", "standard"])
     parser.add_argument("--seeds", type=str, default="42", help="Comma-separated list of integer seeds, e.g. 42,43,44")
     parser.add_argument("--results_dir", type=str, default="results", help="Base results directory")
-    parser.add_argument("--se_performance_threshold", type=float, default=-350, help="performance threshold for sample efficiency (mean training reward)")
+    parser.add_argument("--se_performance_threshold", type=float, default=-300, help="performance threshold for sample efficiency (mean training reward)")
     parser.add_argument("--se_training_window", type=int, default=5, help="Sliding window size (number of recent training episodes) used to compute mean for sample efficiency detection")
     args = parser.parse_args()
 
