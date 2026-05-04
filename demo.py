@@ -275,6 +275,35 @@ def worker_run(
     try:
         # Start SUMO via traci.start (TraCI will append --remote-port)
         traci.start(sumocfg_cmd, port=sumo_port)
+        
+        # Wait for GUI views to appear, then set the visualization scheme to "real world"
+        def set_real_world_schema(timeout=5.0, delay=0.1):
+            start = time.time()
+            while time.time() - start < timeout:
+                try:
+                    view_ids = traci.gui.getIDList()
+                    if view_ids:
+                        for vid in view_ids:
+                            try:
+                                traci.gui.setSchema(vid, "real world")
+                            except Exception:
+                                # some SUMO versions may require addView or different schema names
+                                try:
+                                    traci.gui.addView(vid, "real world")
+                                except Exception:
+                                    pass
+                        return True
+                except Exception:
+                    pass
+                time.sleep(delay)
+            return False
+
+        # after traci.start(...)
+        if show_gui:
+            ok = set_real_world_schema(timeout=8.0)
+            if not ok:
+                print("[worker] Warning: could not set 'real world' schema; GUI may still be 'standard'")
+
 
         # Robust titling helper
         def _title_sumo_gui_with_retries_all(label_title: str, sumocfg_path: str, sumo_port: int, max_attempts: int = 120, delay: float = 0.25):
@@ -416,9 +445,9 @@ def worker_run(
         # Proper titles for each tab (include label, port, SUMO seed and training seed for rainbow)
         if kind == "rainbow":
             seed_part = f", train_seed {train_seed}" if train_seed is not None else ""
-            run_title = f"Rainbow DQN — {label} (port {sumo_port}, SUMO Seed {sumo_seed}{seed_part})"
+            run_title = f"StopGuardian — {label} (port {sumo_port}, SUMO Seed {sumo_seed}{seed_part})"
         else:
-            run_title = f"Fixed-Time Baseline — {label} (port {sumo_port}, SUMO Seed {sumo_seed})"
+            run_title = f"CTMA — {label} (port {sumo_port}, SUMO Seed {sumo_seed})"
 
         try:
             _title_sumo_gui_with_retries_all(run_title, sumocfg_path, sumo_port, max_attempts=80, delay=0.25)
@@ -845,12 +874,12 @@ def plot_combined_across_episodes(results_dir: str, run_id: str, num_episodes: i
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--results_dir", type=str, default="results")
-    parser.add_argument("--run_id", type=str, default="parallel_compare")
+    parser.add_argument("--run_id", type=str, default="demo")
     parser.add_argument("--steps_per_episode", type=int, default=1000)
     parser.add_argument("--show_gui", action="store_true", default=True)
     parser.add_argument("--sumo_base_port", type=int, default=8813)
     parser.add_argument("--train_seed", type=int, default=42)
-    parser.add_argument("--num_episodes", type=int, default=2, help="Number of demo episodes to run (each uses a different SUMO seed)")
+    parser.add_argument("--num_episodes", type=int, default=3, help="Number of demo episodes to run (each uses a different SUMO seed)")
     parser.add_argument("--sumo_seed_base", type=int, default=42, help="Base SUMO seed; each episode will use sumo_seed_base + episode_index")
     args = parser.parse_args()
 
