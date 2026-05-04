@@ -777,7 +777,7 @@ if __name__ == "__main__":
     parser.add_argument("--run_id", type=str, default="rl")
     parser.add_argument("--episodes", type=int, default=125)
     parser.add_argument("--steps_per_episode", type=int, default=1000)
-    parser.add_argument("--model", type=str, default="standard", choices=["rainbow", "standard"])
+    parser.add_argument("--model", type=str, default="rainbow", choices=["rainbow", "standard"])
     parser.add_argument("--seeds", type=str, default="42", help="Comma-separated list of integer seeds, e.g. 42,43,44")
     parser.add_argument("--results_dir", type=str, default="results", help="Base results directory")
     parser.add_argument("--se_performance_threshold", type=float, default=-300, help="performance threshold for sample efficiency (mean training reward)")
