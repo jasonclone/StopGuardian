@@ -1,5 +1,5 @@
 seed,sample_efficiency_step
-42,100000
+42,2000
 
-median_sample_step,100000
-mean_sample_step,100000.0
+median_sample_step,2000
+mean_sample_step,2000.0

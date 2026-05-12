@@ -4,9 +4,9 @@
     "legacy": {
       "num_seeds": 1,
       "metrics": {
-        "final_mean_reward": -554.2700000000017,
-        "final_reward_ci_lower": -554.2700000000017,
-        "final_reward_ci_upper": -554.2700000000017,
+        "final_mean_reward": -541.0050000000005,
+        "final_reward_ci_lower": -541.0050000000005,
+        "final_reward_ci_upper": -541.0050000000005,
         "mean_episode_length": NaN,
         "length_ci_lower": NaN,
         "length_ci_upper": NaN,

@@ -24,8 +24,8 @@ from traffic_env import TrafficEnv, make_sumo_config, save_step_csv, save_episod
 # ================================================================
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--episodes", type=int, default=1)
-parser.add_argument("--steps_per_episode", type=int, default=100)
+parser.add_argument("--episodes", type=int, default=10)
+parser.add_argument("--steps_per_episode", type=int, default=1000)
 parser.add_argument("--run_id", type=str, default="b1")
 args = parser.parse_args()
 
@@ -53,21 +53,6 @@ SUMO_CFG = "simulation/sumo/test.sumocfg"
 #* initialize traffic env
 env = TrafficEnv("C")
 
-# get calibration data from b1_cal.py runs (if it exists) to apply tuned normalization and reward params to env before training
-CALIB_DIR = os.path.join(RESULTS_DIR, "calib")
-os.makedirs(CALIB_DIR, exist_ok=True)
-
-CALIB_CSV = os.path.abspath(
-    os.path.join(RESULTS_DIR, "calib", "b1_calibration.csv")
-)
-
-
-# verify calibration source csv exists (run b1_cal.py), and if so apply auto-tuning to env params based on observed data
-if os.path.exists(CALIB_CSV):
-    print("[INFO] Applying tuned normalization and reward params from calibration run...")
-    env.calibrate_env_params(CALIB_CSV)
-else:
-    print("[WARNING] Calibration CSV not found. Using default env normalization and reward params.")
 
 # Baseline main
 

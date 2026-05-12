@@ -1,2 +1,2 @@
-seed,sample_efficiency_step,mean_eval,window_size
-42,100000,-286.8499999999993,1
+seed,sample_efficiency_step,mean,window_size
+42,2000,-287.9666666666667,3
