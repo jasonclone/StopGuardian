@@ -124,7 +124,7 @@ def total_training_time_hours(df: pd.DataFrame, seconds_per_step: float = 0.5, m
     if df.empty or "mode" not in df.columns or "episode_length" not in df.columns:
         return float("nan")
     
-    TOTAL_EPISODES = 125
+    TOTAL_EPISODES = 250
     EPISODE_LENGTH = 1000
 
     total_seconds = TOTAL_EPISODES * EPISODE_LENGTH * float(seconds_per_step)

@@ -1,60 +1,92 @@
 RL Experiment Summary by Algorithm and Seed
 ===========================================
-Generated: 2026-05-02 22:28:29
+Generated: 2026-05-11 19:51:37
 Root scanned: results/rl
 
 Algorithm: rainbow
   Mode: eval
-    Count: 25
-    Mean cumulative_reward: -332.361200
-    Std (sample, ddof=1): 26.864009
+    Count: 150
+    Mean cumulative_reward: -328.736633
+    Std (sample, ddof=1): 34.612696
     Mean episode_length: 1000.000
   Mode: train
-    Count: 100
-    Mean cumulative_reward: -344.002950
-    Std (sample, ddof=1): 48.882023
+    Count: 600
+    Mean cumulative_reward: -327.299900
+    Std (sample, ddof=1): 66.270245
     Mean episode_length: 1000.000
 
   Per-seed breakdown for rainbow:
     Seed: seed_42
-      eval: count=25, mean=-332.361200 std=26.864009
-      train: count=100, mean=-344.002950 std=48.882023
+      eval: count=50, mean=-320.356000 std=39.413793
+      train: count=200, mean=-339.255275 std=94.010619
         mean episode_length (eval): 1000.000
         mean episode_length (train): 1000.000
-        convergence_episode (train, threshold=-280.0): 48
-        estimated training time (hours): 5.1340
+        convergence_episode (train, threshold=-280.0): 95
+        estimated training time (hours): 10.2681
+
+    Seed: seed_43
+      eval: count=50, mean=-339.475600 std=37.798091
+      train: count=200, mean=-315.988850 std=50.062664
+        mean episode_length (eval): 1000.000
+        mean episode_length (train): 1000.000
+        convergence_episode (train, threshold=-280.0): 23
+        estimated training time (hours): 10.2681
+
+    Seed: seed_44
+      eval: count=50, mean=-326.378300 std=21.583567
+      train: count=200, mean=-326.655575 std=40.030715
+        mean episode_length (eval): 1000.000
+        mean episode_length (train): 1000.000
+        convergence_episode (train, threshold=-280.0): 34
+        estimated training time (hours): 10.2681
 
 
 Algorithm: standard
   Mode: eval
-    Count: 25
-    Mean cumulative_reward: -263.788400
-    Std (sample, ddof=1): 36.671147
+    Count: 150
+    Mean cumulative_reward: -248.982033
+    Std (sample, ddof=1): 41.375478
     Mean episode_length: 1000.000
   Mode: train
-    Count: 100
-    Mean cumulative_reward: -268.929400
-    Std (sample, ddof=1): 44.640861
+    Count: 600
+    Mean cumulative_reward: -257.015292
+    Std (sample, ddof=1): 36.752396
     Mean episode_length: 1000.000
 
   Per-seed breakdown for standard:
     Seed: seed_42
-      eval: count=25, mean=-263.788400 std=36.671147
-      train: count=100, mean=-268.929400 std=44.640861
+      eval: count=50, mean=-252.819100 std=54.438768
+      train: count=200, mean=-256.333800 std=35.790984
+        mean episode_length (eval): 1000.000
+        mean episode_length (train): 1000.000
+        convergence_episode (train, threshold=-280.0): 2
+        estimated training time (hours): 10.2681
+
+    Seed: seed_43
+      eval: count=50, mean=-252.210600 std=30.600312
+      train: count=200, mean=-258.214175 std=36.454266
         mean episode_length (eval): 1000.000
         mean episode_length (train): 1000.000
         convergence_episode (train, threshold=-280.0): 3
-        estimated training time (hours): 5.1340
+        estimated training time (hours): 10.2681
+
+    Seed: seed_44
+      eval: count=50, mean=-241.916400 std=35.058592
+      train: count=200, mean=-256.497900 std=38.127453
+        mean episode_length (eval): 1000.000
+        mean episode_length (train): 1000.000
+        convergence_episode (train, threshold=-280.0): 2
+        estimated training time (hours): 10.2681
 
 
 Comparison Summary (computed values where available)
 ------------------------------------------------------------
 
 Dimension                                         |  Rainbow DQN (Primary)    |  Standard DQN (Baseline)
-Mean Reward (eval)                                |  -332.361200 ± 26.864009  |  -263.788400 ± 36.671147
+Mean Reward (eval)                                |  -328.736633 ± 34.612696  |  -248.982033 ± 41.375478
 Episode Length (mean, train)                      |  1000.000                 |  1000.000               
-Convergence Episodes (median across seeds)        |  48                       |  3                      
-Estimated Training Time (avg hours across seeds)  |  5.134 h                  |  5.134 h                
+Convergence Episodes (median across seeds)        |  34                       |  2                      
+Estimated Training Time (avg hours across seeds)  |  10.268 h                 |  10.268 h               
 Model Complexity (params)                         |  414,514 (~0.415M)        |  74,218 (~0.074M)       
 File Size (float32)                               |  1.581 MB                 |  0.283 MB               
 
