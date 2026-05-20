@@ -53,7 +53,7 @@ tensorboard --logdir results/b1 --port 6006
 * Exploratory Data Analysis
 <...\StopGuardian> python rl/eda.py
 
-* Demo visualization that runs parallel Rainbow DQN and the fixed time signal baseline on the SUMO GUI over seeds (THIS FILE CANNOT BE RUN ON WINDOWS DOCKER CONTAINER; SUMO GUI IS NOT COMPATIBLE WITH IT).
+* Demo SUMO GUI visualization that runs in parallel Rainbow DQN (from a specific training seed) and the fixed time signal baseline over multiple simulations (THIS FILE CANNOT BE RUN ON WINDOWS DOCKER CONTAINER; SUMO GUI IS NOT COMPATIBLE WITH IT).
 <...\StopGuardian> python demo.py
 
 
