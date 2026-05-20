@@ -41,13 +41,13 @@ e.g.
 
 * View results using:
 
-* tensorboard metrics
+* Tensorboard metrics
 e.g.
 tensorboard --logdir results/rl/rainbow/seed_42 --port 6006
 tensorboard --logdir results/rl/standard/seed_43 --port 6006
 tensorboard --logdir results/b1 --port 6006
 
-* performance report comparison between Rainbow and Standard DQN models
+* Performance report comparison between Rainbow and Standard DQN models
 <...\StopGuardian> python rstats.py
 
 * Exploratory Data Analysis
