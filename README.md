@@ -23,7 +23,7 @@ Make sure container is running via Docker Desktop. This will build the Docker im
 <...\StopGuardian> docker run --rm -it stopguardian
 
 ** run a file using docker; e.g. train.py
-docker run --rm -it stopguardian python3 rl/train.py
+<...\StopGuardian> docker run --rm -it stopguardian python3 rl/train.py
 
 ** to run the default sumo simulation (uses fixed time traffic signals) manually on gui
 <...\StopGuardian> sumo-gui -c simulation/sumo/test.sumocfg
@@ -43,9 +43,9 @@ e.g.
 
 * Tensorboard metrics
 e.g.
-tensorboard --logdir results/rl/rainbow/seed_42 --port 6006
-tensorboard --logdir results/rl/standard/seed_43 --port 6006
-tensorboard --logdir results/b1 --port 6006
+<...\StopGuardian> tensorboard --logdir results/rl/rainbow/seed_42 --port 6006
+<...\StopGuardian> tensorboard --logdir results/rl/standard/seed_43 --port 6006
+<...\StopGuardian> tensorboard --logdir results/b1 --port 6006
 
 * Performance report comparison between Rainbow and Standard DQN models
 <...\StopGuardian> python rstats.py
