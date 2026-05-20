@@ -1,2 +1,2 @@
 label,cumulative_reward,avg_vehicle_queue,avg_ped_queue,avg_vehicle_wait,avg_ped_wait,vehicle_total_throughput,ped_total_throughput,switch_count,episode_length
-rainbow,-305.84999999999934,26.097,2.992,546.1485,78.2325,388,31,0,1000
+rainbow,-313.02499999999935,27.653,2.433,633.377,63.019,391,31,0,1000

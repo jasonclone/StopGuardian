@@ -1,2 +1,2 @@
 label,cumulative_reward,avg_vehicle_queue,avg_ped_queue,avg_vehicle_wait,avg_ped_wait,vehicle_total_throughput,ped_total_throughput,switch_count,episode_length
-baseline_fixed,-554.5999999999997,44.618,7.228,2115.8115,401.76,354,24,0,1000
+baseline_fixed,-634.4699999999989,52.095,7.568,2528.1915,399.6165,340,24,0,1000

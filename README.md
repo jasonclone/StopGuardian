@@ -22,28 +22,41 @@ Make sure container is running via Docker Desktop. This will build the Docker im
 <...\StopGuardian> docker build -t stopguardian .
 <...\StopGuardian> docker run --rm -it stopguardian
 
+** run a file using docker; e.g. train.py
 docker run --rm -it stopguardian python3 rl/train.py
 
-docker run --rm -it -v .:/app stopguardian python3 rl/train.py
-
-
-** to run the default sumo simulation manually on gui
+** to run the default sumo simulation (uses fixed time traffic signals) manually on gui
 <...\StopGuardian> sumo-gui -c simulation/sumo/test.sumocfg
 
-** To get and compare results of the baseline and trained rl agent:
 
-run train.py (train the agent and get its performance. This will take a while)
-<...\StopGuardian> python rl/train.py
+** StopGuardian Pipeline Guide:
 
-run b1.py (same but for fixed traffic signal baseline)
-<...\StopGuardian> python python baselines/b1.py
+* run b1.py (run fixed time traffic signal baseline and collect metrics)
+<...\StopGuardian> python baselines/b1.py
 
-run compare.py (generated txt file with comparison details). Make sure baseline and rl training run for same amount of steps for accurate comparison.
-<...\StopGuardian> python compare.py
+* run rl/train.py (train the rainbow and standard dqn models and collect metrics over the same seeds. This will take a while)
+e.g.
+<...\StopGuardian> python rl/train.py --model rainbow --episodes 250 --steps-per-episode 1000 --seeds 42 43 44
+<...\StopGuardian> python rl/train.py --model standard --episodes 250 --steps-per-episode 1000 --seeds 42 43 44
+
+* View results using:
+
+* tensorboard metrics
+e.g.
+tensorboard --logdir results/rl/rainbow/seed_42 --port 6006
+tensorboard --logdir results/rl/standard/seed_43 --port 6006
+tensorboard --logdir results/b1 --port 6006
+
+* performance report comparison between Rainbow and Standard DQN models
+<...\StopGuardian> python rstats.py
+
+* Exploratory Data Analysis
+<...\StopGuardian> python rl/eda.py
+
+* Demo visualization that runs parallel Rainbow DQN and the fixed time signal baseline on the SUMO GUI over seeds (THIS FILE CANNOT BE RUN ON WINDOWS DOCKER CONTAINER; SUMO GUI IS NOT COMPATIBLE WITH IT).
+<...\StopGuardian> python demo.py
 
 
-** Exploratory Data Analysis of the results of the baseline and trained rl agent
-<...\StopGuardian> python eda.py
 
-tensorboard command: tensorboard --logdir results/rl/tb
-it will give localhost link to view the stats
+
+

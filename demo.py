@@ -245,10 +245,10 @@ def worker_run(
     try:
         import traci
         from traffic_env import TrafficEnv, save_step_csv, save_episode_csv
-        from action import apply_action_safe, select_action
-        from model import build_rainbow_model
+        from rl.action import apply_action_safe, select_action
+        from rl.model import build_rainbow_model
         try:
-            from config import MIN_REPLAY_SIZE
+            from rl.config import MIN_REPLAY_SIZE
         except Exception:
             MIN_REPLAY_SIZE = 1000
     except Exception as e:
@@ -878,7 +878,7 @@ def main():
     parser.add_argument("--steps_per_episode", type=int, default=1000)
     parser.add_argument("--show_gui", action="store_true", default=True)
     parser.add_argument("--sumo_base_port", type=int, default=8813)
-    parser.add_argument("--train_seed", type=int, default=42)
+    parser.add_argument("--train_seed", type=int, default=42, help="Training seed for the rainbow agent (baseline is unaffected)")
     parser.add_argument("--num_episodes", type=int, default=3, help="Number of demo episodes to run (each uses a different SUMO seed)")
     parser.add_argument("--sumo_seed_base", type=int, default=42, help="Base SUMO seed; each episode will use sumo_seed_base + episode_index")
     args = parser.parse_args()
